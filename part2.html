@@ -208,7 +208,9 @@
         <h4>Population: Active Premium Churn Cohort</h4>
         <p class="note">Base table: sandbox.ecom.churn_analysis_base_cohort — filtered to active cancellations only.</p>
         <pre>WHERE is_premium_churned
-  AND cancel_request_reason_code >= 0  -- Active Churn only</pre>
+  AND cancel_request_reason_code >= 0  -- Active Churn only
+  -- 3 $1M Club MSIDs excluded (migrated to other Wix MSIDs, not true churn):
+  -- 88aab8a4 (retrotink.com), 19871b87 (enduraflood.com), 47359508 (laineslondon.com)</pre>
 
         <h4>Component 1: GPV Collection (Wix take-rate from payment processing)</h4>
         <p class="note">Joins ecom GPV transactions to earnings collections to get what Wix actually earns. Averaged across Q4 2024 (Oct-Dec) per site.</p>
