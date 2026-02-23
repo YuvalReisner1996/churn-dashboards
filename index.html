@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Active Churn 2025: Sankey Explorer</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
     <style>
         :root {
@@ -417,16 +418,16 @@ function buildChart() {
         const order = ['intent','gpv','tenure','churnto','uv'];
         const reversed = order.indexOf(sel.left) > order.indexOf(sel.right);
         const flows = getFlows(sel.left, sel.right, reversed);
+        const subset = flows.filter(([a,b]) => matchesFilter(a,b));
 
-        const leftVals = dimL.values.filter(v => flows.some(f => f[0] === v));
-        const rightVals = dimR.values.filter(v => flows.some(f => f[1] === v));
+        const leftVals = dimL.values.filter(v => subset.some(f => f[0] === v));
+        const rightVals = dimR.values.filter(v => subset.some(f => f[1] === v));
         allLabels = [...leftVals, ...rightVals];
         allColors = [
             ...leftVals.map(v => dimL.colors[v] || 'rgba(150,150,150,0.5)'),
             ...rightVals.map(v => dimR.colors[v] || 'rgba(150,150,150,0.5)')
         ];
 
-        const subset = flows.filter(([a,b]) => matchesFilter(a,b));
         const grandTotal = flows.reduce((s,r) => s+r[2], 0);
         const globalTotals = computeTotals(flows);
 
@@ -451,10 +452,12 @@ function buildChart() {
         const revMR = order.indexOf(sel.mid) > order.indexOf(sel.right);
         const flowsLM = getFlows(sel.left, sel.mid, revLM);
         const flowsMR = getFlows(sel.mid, sel.right, revMR);
+        const subsetLM = flowsLM.filter(([a,b]) => matchesFilter(a,b));
+        const subsetMR = flowsMR.filter(([a,b]) => matchesFilter(a,b));
 
-        const leftVals = dimL.values.filter(v => flowsLM.some(f => f[0] === v));
-        const midVals = dimM.values.filter(v => flowsLM.some(f => f[1] === v) || flowsMR.some(f => f[0] === v));
-        const rightVals = dimR.values.filter(v => flowsMR.some(f => f[1] === v));
+        const leftVals = dimL.values.filter(v => subsetLM.some(f => f[0] === v));
+        const midVals = dimM.values.filter(v => subsetLM.some(f => f[1] === v) || subsetMR.some(f => f[0] === v));
+        const rightVals = dimR.values.filter(v => subsetMR.some(f => f[1] === v));
         allLabels = [...leftVals, ...midVals, ...rightVals];
         allColors = [
             ...leftVals.map(v => dimL.colors[v] || 'rgba(150,150,150,0.5)'),
@@ -475,7 +478,6 @@ function buildChart() {
 
         sources = []; targets = []; values = []; linkColors = []; customdata = [];
 
-        const subsetLM = flowsLM.filter(([a,b]) => matchesFilter(a,b));
         subsetLM.forEach(([a, b, v]) => {
             const si = allLabels.indexOf(a), ti = leftVals.length + midVals.indexOf(b);
             if (si < 0 || ti < leftVals.length) return;
@@ -484,7 +486,6 @@ function buildChart() {
             customdata.push([((v/grandTotal)*100).toFixed(1), ((v/(globalTotals[a]||1))*100).toFixed(1), ((v/(globalTotals[b]||1))*100).toFixed(1)]);
         });
 
-        const subsetMR = flowsMR.filter(([a,b]) => matchesFilter(a,b));
         subsetMR.forEach(([a, b, v]) => {
             const si = leftVals.length + midVals.indexOf(a);
             const ti = leftVals.length + midVals.length + rightVals.indexOf(b);
