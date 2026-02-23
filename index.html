@@ -368,9 +368,29 @@ function getSelections() {
     return { left, mid, right };
 }
 
+function getFiltersByDimension() {
+    const groups = {};
+    filterNodes.forEach(node => {
+        for (const [key, dim] of Object.entries(dims)) {
+            if (dim.values.includes(node)) {
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(node);
+                break;
+            }
+        }
+    });
+    return groups;
+}
+
 function matchesFilter(a, b) {
     if (filterNodes.size === 0) return true;
-    return filterNodes.has(a) || filterNodes.has(b);
+    const groups = getFiltersByDimension();
+    const dimKeys = Object.keys(groups);
+    // AND across dimensions, OR within same dimension
+    return dimKeys.every(dk => {
+        const vals = groups[dk];
+        return vals.some(v => v === a || v === b);
+    });
 }
 
 function getThemeColors() {
@@ -491,9 +511,12 @@ function buildChart() {
         ? `${dims[sel.left].label} → ${dims[sel.right].label}`
         : `${dims[sel.left].label} → ${dims[sel.mid].label} → ${dims[sel.right].label}`;
 
-    const titleText = filterNodes.size > 0
-        ? `Filtered: ${[...filterNodes].join(' + ')}`
-        : titleParts;
+    let titleText = titleParts;
+    if (filterNodes.size > 0) {
+        const groups = getFiltersByDimension();
+        const parts = Object.values(groups).map(vals => vals.length > 1 ? `(${vals.join(' | ')})` : vals[0]);
+        titleText = `Filtered: ${parts.join(' & ')}`;
+    }
 
     const trace = {
         type: 'sankey', orientation: 'h', arrangement: 'snap',
@@ -571,7 +594,9 @@ function buildControls() {
 function updateBanner() {
     const banner = document.getElementById('zoom-banner');
     if (filterNodes.size > 0) {
-        banner.innerHTML = `Showing flows for <strong>${[...filterNodes].join(' + ')}</strong>`;
+        const groups = getFiltersByDimension();
+        const parts = Object.values(groups).map(vals => vals.length > 1 ? `(${vals.join(' | ')})` : vals[0]);
+        banner.innerHTML = `Showing flows for <strong>${parts.join(' &amp; ')}</strong>`;
         banner.classList.add('visible');
     } else {
         banner.classList.remove('visible');
