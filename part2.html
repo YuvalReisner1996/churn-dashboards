@@ -158,22 +158,22 @@
 <div class="kpi-row">
     <div class="kpi-card">
         <div class="label">Total Monthly at Risk</div>
-        <div class="value">$2.20M</div>
-        <div class="sub">~$26M annualized</div>
+        <div class="value">$2.43M</div>
+        <div class="sub">~$29M annualized</div>
     </div>
     <div class="kpi-card highlight">
         <div class="label">1 $1M Club Site =</div>
-        <div class="value">442</div>
+        <div class="value">420</div>
         <div class="sub">Moonlighters</div>
     </div>
     <div class="kpi-card">
         <div class="label">Top 0.4% of Sites</div>
-        <div class="value">19%</div>
+        <div class="value">18%</div>
         <div class="sub">of total value at risk</div>
     </div>
     <div class="kpi-card">
         <div class="label">Moonlighter Premium Share</div>
-        <div class="value">85%</div>
+        <div class="value">78%</div>
         <div class="sub">of their value is subscription</div>
     </div>
 </div>
@@ -190,11 +190,11 @@
 <div class="insight-box">
     <h3>Strategic Implications</h3>
     <ul>
-        <li><strong>Moonlighters are the largest total pool ($788K/mo)</strong> — but value is 85% subscription fees. Retention here means keeping them on any plan, not growing their GPV.</li>
-        <li><strong>$1M Club sites are 442x more valuable each</strong> — losing a single one costs as much as losing 442 Moonlighters. High-touch retention (dedicated CSM, proactive outreach) is justified.</li>
-        <li><strong>Small Size Merchants may be the "sweet spot"</strong> — 1,853 sites at $197/mo each ($365K total). Large enough to matter individually (8x a Moonlighter), numerous enough for scaled programs.</li>
+        <li><strong>Moonlighters are the largest total pool ($859K/mo)</strong> — but value is 78% subscription fees. Retention here means keeping them on any plan, not growing their GPV.</li>
+        <li><strong>$1M Club sites are 420x more valuable each</strong> — losing a single one costs as much as losing 420 Moonlighters. High-touch retention (dedicated CSM, proactive outreach) is justified.</li>
+        <li><strong>Small Size Merchants may be the "sweet spot"</strong> — 1,853 sites at $222/mo each ($412K total). Large enough to matter individually (8x a Moonlighter), numerous enough for scaled programs.</li>
         <li><strong>GPV collection dominates above Micro</strong> — for Med+ merchants, the payment processing take-rate is the real revenue. Premium subscription is a rounding error for whales.</li>
-        <li><strong>The top 177 sites (0.4% of cohort)</strong> carry $408K/mo in value at risk — 19% of the total.</li>
+        <li><strong>The top 177 sites (0.4% of cohort)</strong> carry $439K/mo in value at risk — 18% of the total.</li>
         <li><strong>Data quality note:</strong> 3 of the original 17 $1M Club sites (retrotink.com, laineslondon.com, enduraflood.com) were removed — they migrated to other Wix MSIDs rather than churning from Wix.</li>
     </ul>
 </div>
@@ -359,13 +359,13 @@ prod.ecom.active_sites_breakdowns_monthly    -- Monthly site-level GPV breakdown
 <script>
 const groups = ['$1M Club','Big Merchants','Med size Merchants','Small Size Merchants','Micro size Merchants','Moonlighters'];
 const sites =  [17, 163, 401, 1853, 5959, 31985];
-const gpvColl = [154233, 247663, 249523, 319839, 236529, 115570];
+const gpvColl = [158314, 274202, 274350, 366936, 294201, 185764];
 const premColl = [438, 5447, 10465, 45147, 140604, 672847];
 const totalRisk = gpvColl.map((g, i) => g + premColl[i]);
-const avgGpv =  [11017, 1519, 622, 173, 40, 4];
+const avgGpv =  [11308, 1682, 684, 198, 49, 6];
 const avgPrem = [31, 33, 26, 24, 24, 21];
 const avgTotal = avgGpv.map((g, i) => g + avgPrem[i]);
-const exchangeRate = [442, 62, 26, 8, 3, 1];
+const exchangeRate = [420, 64, 26, 8, 3, 1];
 
 const colors = {
     gpv: 'rgba(99,102,241,0.85)',
