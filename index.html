@@ -6,16 +6,61 @@
     <title>Active Churn 2025: Sankey Explorer</title>
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
     <style>
+        :root {
+            --bg: #0f1117; --bg-secondary: rgba(255,255,255,0.04); --bg-tertiary: rgba(0,0,0,0.3);
+            --text: #e0e0e0; --text-secondary: #9ca3af; --text-muted: #6b7280; --text-dim: #4b5563;
+            --heading: #f5f5f5; --accent: #818cf8; --accent-light: #a5b4fc; --accent-pale: #c7d2fe; --accent-bg: #e0e7ff;
+            --border: rgba(255,255,255,0.1); --border-accent: rgba(129,140,248,0.3); --border-accent-dim: rgba(129,140,248,0.15);
+            --btn-bg: rgba(255,255,255,0.03); --btn-hover: rgba(129,140,248,0.1); --btn-active: rgba(129,140,248,0.22);
+            --filter-bg: rgba(255,255,255,0.04); --filter-hover: rgba(255,255,255,0.1); --filter-border: rgba(255,255,255,0.1);
+            --filter-hover-border: rgba(255,255,255,0.22); --filter-text: #d1d5db;
+            --reset-bg: rgba(239,68,68,0.12); --reset-border: rgba(239,68,68,0.35); --reset-text: #fca5a5; --reset-hover: rgba(239,68,68,0.25);
+            --sql-bg: rgba(0,0,0,0.4); --sql-border: rgba(255,255,255,0.06);
+            --select-bg: rgba(255,255,255,0.05); --select-text: #e0e0e0;
+            --node-line: rgba(255,255,255,0.15); --chart-font: #d1d5db;
+            --link-opacity: 0.35; --link-opacity-3col: 0.3;
+        }
+        [data-theme="light"] {
+            --bg: #f8f9fb; --bg-secondary: rgba(0,0,0,0.03); --bg-tertiary: rgba(0,0,0,0.04);
+            --text: #1f2937; --text-secondary: #6b7280; --text-muted: #9ca3af; --text-dim: #d1d5db;
+            --heading: #111827; --accent: #6366f1; --accent-light: #6366f1; --accent-pale: #4f46e5; --accent-bg: #312e81;
+            --border: rgba(0,0,0,0.1); --border-accent: rgba(99,102,241,0.35); --border-accent-dim: rgba(99,102,241,0.15);
+            --btn-bg: rgba(0,0,0,0.02); --btn-hover: rgba(99,102,241,0.08); --btn-active: rgba(99,102,241,0.15);
+            --filter-bg: rgba(0,0,0,0.03); --filter-hover: rgba(0,0,0,0.07); --filter-border: rgba(0,0,0,0.12);
+            --filter-hover-border: rgba(0,0,0,0.22); --filter-text: #374151;
+            --reset-bg: rgba(239,68,68,0.08); --reset-border: rgba(239,68,68,0.3); --reset-text: #dc2626; --reset-hover: rgba(239,68,68,0.15);
+            --sql-bg: rgba(0,0,0,0.04); --sql-border: rgba(0,0,0,0.08);
+            --select-bg: #fff; --select-text: #1f2937;
+            --node-line: rgba(0,0,0,0.12); --chart-font: #374151;
+            --link-opacity: 0.25; --link-opacity-3col: 0.2;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #0f1117; color: #e0e0e0;
+            background: var(--bg); color: var(--text);
             min-height: 100vh;
             display: flex; flex-direction: column; align-items: center;
+            transition: background 0.3s, color 0.3s;
         }
         .header { text-align: center; padding: 28px 20px 6px; max-width: 1000px; }
-        .header h1 { font-size: 1.5rem; font-weight: 600; color: #f5f5f5; margin-bottom: 4px; }
-        .header p { font-size: 0.85rem; color: #9ca3af; line-height: 1.4; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; color: var(--heading); margin-bottom: 4px; }
+        .header p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; }
+
+        .top-bar {
+            width: 100%; max-width: 1100px;
+            display: flex; justify-content: flex-end;
+            padding: 12px 20px 0;
+        }
+        .theme-toggle {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 20px;
+            border: 1.5px solid var(--border);
+            background: var(--bg-secondary); color: var(--text-secondary);
+            font-size: 0.78rem; cursor: pointer;
+            font-family: inherit; transition: all 0.2s;
+        }
+        .theme-toggle:hover { border-color: var(--border-accent); color: var(--accent); }
+        .theme-toggle .icon { font-size: 1rem; }
 
         .config-panel {
             display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
@@ -24,31 +69,31 @@
         }
         .config-group { display: flex; flex-direction: column; gap: 4px; }
         .config-group label {
-            font-size: 0.68rem; color: #818cf8; font-weight: 600;
+            font-size: 0.68rem; color: var(--accent); font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.08em;
         }
         .config-group select {
             padding: 8px 12px; border-radius: 8px;
-            border: 1.5px solid rgba(129,140,248,0.3);
-            background: rgba(255,255,255,0.05); color: #e0e0e0;
+            border: 1.5px solid var(--border-accent);
+            background: var(--select-bg); color: var(--select-text);
             font-family: inherit; font-size: 0.82rem;
             cursor: pointer; min-width: 170px;
         }
-        .config-group select:focus { outline: none; border-color: #818cf8; }
+        .config-group select:focus { outline: none; border-color: var(--accent); }
 
         .mode-toggle {
             display: flex; gap: 0; border-radius: 8px; overflow: hidden;
-            border: 1.5px solid rgba(129,140,248,0.25);
+            border: 1.5px solid var(--border-accent-dim);
         }
         .mode-btn {
-            padding: 8px 18px; background: rgba(255,255,255,0.03);
-            color: #9ca3af; font-size: 0.82rem; cursor: pointer;
+            padding: 8px 18px; background: var(--btn-bg);
+            color: var(--text-secondary); font-size: 0.82rem; cursor: pointer;
             border: none; font-family: inherit; transition: all 0.2s;
-            border-right: 1px solid rgba(129,140,248,0.15);
+            border-right: 1px solid var(--border-accent-dim);
         }
         .mode-btn:last-child { border-right: none; }
-        .mode-btn:hover { background: rgba(129,140,248,0.1); color: #c7d2fe; }
-        .mode-btn.active { background: rgba(129,140,248,0.22); color: #e0e7ff; font-weight: 600; }
+        .mode-btn:hover { background: var(--btn-hover); color: var(--accent-pale); }
+        .mode-btn.active { background: var(--btn-active); color: var(--accent-bg); font-weight: 600; }
 
         .controls {
             display: flex; flex-wrap: wrap; gap: 7px;
@@ -56,31 +101,31 @@
         }
         .filter-btn {
             padding: 5px 13px; border-radius: 18px;
-            border: 1.5px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.04); color: #d1d5db;
+            border: 1.5px solid var(--filter-border);
+            background: var(--filter-bg); color: var(--filter-text);
             font-size: 0.75rem; cursor: pointer;
             transition: all 0.2s; font-family: inherit;
         }
-        .filter-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.22); }
+        .filter-btn:hover { background: var(--filter-hover); border-color: var(--filter-hover-border); }
         .filter-btn.active {
-            background: rgba(129,140,248,0.22); border-color: #818cf8;
-            color: #c7d2fe; font-weight: 600;
+            background: var(--btn-active); border-color: var(--accent);
+            color: var(--accent-pale); font-weight: 600;
         }
         .filter-btn.reset {
-            background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: #fca5a5;
+            background: var(--reset-bg); border-color: var(--reset-border); color: var(--reset-text);
         }
-        .filter-btn.reset:hover { background: rgba(239,68,68,0.25); }
+        .filter-btn.reset:hover { background: var(--reset-hover); }
         .section-label {
             display: flex; align-items: center;
-            font-size: 0.65rem; color: #6b7280;
+            font-size: 0.65rem; color: var(--text-muted);
             text-transform: uppercase; letter-spacing: 0.08em;
             padding: 0 3px; font-weight: 600;
         }
-        .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 3px; }
+        .divider { width: 1px; height: 20px; background: var(--border); margin: 0 3px; }
 
         .zoom-banner {
             display: none; text-align: center; padding: 6px 20px;
-            font-size: 0.8rem; color: #818cf8; animation: fadeIn 0.3s;
+            font-size: 0.8rem; color: var(--accent); animation: fadeIn 0.3s;
         }
         .zoom-banner.visible { display: block; }
         @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
@@ -89,66 +134,72 @@
 
         .footer-note {
             text-align: center; padding: 6px 20px;
-            font-size: 0.72rem; color: #6b7280; max-width: 1100px;
+            font-size: 0.72rem; color: var(--text-muted); max-width: 1100px;
         }
 
         .sql-section { max-width: 1100px; margin: 16px auto 0; width: 96%; }
         .sql-toggle {
             display: flex; align-items: center; gap: 8px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border); border-radius: 8px;
             padding: 10px 18px; cursor: pointer;
             font-family: inherit; font-size: 0.82rem;
-            color: #a5b4fc; font-weight: 600; width: 100%;
+            color: var(--accent-light); font-weight: 600; width: 100%;
             transition: background 0.2s;
         }
-        .sql-toggle:hover { background: rgba(255,255,255,0.08); }
+        .sql-toggle:hover { background: var(--filter-hover); }
         .sql-toggle .arrow { transition: transform 0.2s; display: inline-block; }
         .sql-toggle.open .arrow { transform: rotate(90deg); }
         .sql-content {
-            display: none; background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.08); border-top: none;
+            display: none; background: var(--bg-tertiary);
+            border: 1px solid var(--sql-border); border-top: none;
             border-radius: 0 0 8px 8px; padding: 16px 20px; overflow-x: auto;
         }
         .sql-content.open { display: block; }
         .sql-content h4 {
-            font-size: 0.75rem; color: #818cf8; font-weight: 600;
+            font-size: 0.75rem; color: var(--accent); font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.06em;
             margin: 14px 0 6px; padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid var(--sql-border);
         }
         .sql-content h4:first-child { margin-top: 0; padding-top: 0; border-top: none; }
         .sql-content pre {
-            background: rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
+            background: var(--sql-bg);
+            border: 1px solid var(--sql-border); border-radius: 6px;
             padding: 14px 16px;
             font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-            font-size: 0.73rem; color: #d1d5db; line-height: 1.5;
+            font-size: 0.73rem; color: var(--text); line-height: 1.5;
             overflow-x: auto; white-space: pre;
         }
         .sql-content .note {
-            font-size: 0.73rem; color: #6b7280; font-style: italic; margin: 4px 0 0;
+            font-size: 0.73rem; color: var(--text-muted); font-style: italic; margin: 4px 0 0;
         }
         .copy-btn {
-            float: right; background: rgba(129,140,248,0.15);
-            border: 1px solid rgba(129,140,248,0.3); border-radius: 4px;
-            padding: 3px 10px; font-size: 0.7rem; color: #a5b4fc;
+            float: right; background: var(--btn-active);
+            border: 1px solid var(--border-accent); border-radius: 4px;
+            padding: 3px 10px; font-size: 0.7rem; color: var(--accent-light);
             cursor: pointer; font-family: inherit;
         }
-        .copy-btn:hover { background: rgba(129,140,248,0.3); }
+        .copy-btn:hover { background: var(--btn-hover); }
 
         .footer {
             text-align: center; padding: 12px 20px 30px;
-            font-size: 0.7rem; color: #4b5563; max-width: 1100px; margin: 0 auto;
+            font-size: 0.7rem; color: var(--text-dim); max-width: 1100px; margin: 0 auto;
         }
     </style>
 </head>
 <body>
 
+<div class="top-bar">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+        <span class="icon" id="theme-icon">&#9789;</span> <span id="theme-label">Light</span>
+    </button>
+</div>
+
 <div class="header">
     <h1>Active Churn 2025: Sankey Explorer</h1>
     <p>Explore flows between any combination of dimensions for actively churned eComm users.<br>
-    Source: <code style="color:#818cf8;">sandbox.ecom.active_churned_users_reasons_2025</code></p>
+    Source: <code style="color:var(--accent);">sandbox.ecom.active_churned_users_reasons_2025</code></p>
 </div>
 
 <div class="config-panel">
@@ -194,7 +245,7 @@
 <div class="controls" id="controls"></div>
 <div class="zoom-banner" id="zoom-banner"></div>
 <div id="sankey-chart"></div>
-<div class="footer-note">Click filter buttons to zoom into a node. Hover for share %. Choose any dimension combination above.</div>
+<div class="footer-note">Click filter buttons to zoom — select multiple to combine (e.g. Shopify + WooCommerce). Hover for share %.</div>
 
 <div class="sql-section">
     <button class="sql-toggle" onclick="toggleSql(this)">
@@ -308,7 +359,7 @@ function getFlows(dimKeyA, dimKeyB, reversed) {
 }
 
 let mode = 2;
-let filterNode = '';
+let filterNodes = new Set();
 
 function getSelections() {
     const left = document.getElementById('sel-left').value;
@@ -317,15 +368,32 @@ function getSelections() {
     return { left, mid, right };
 }
 
+function matchesFilter(a, b) {
+    if (filterNodes.size === 0) return true;
+    return filterNodes.has(a) || filterNodes.has(b);
+}
+
+function getThemeColors() {
+    const cs = getComputedStyle(document.documentElement);
+    return {
+        bg: cs.getPropertyValue('--bg').trim(),
+        chartFont: cs.getPropertyValue('--chart-font').trim(),
+        accent: cs.getPropertyValue('--accent-light').trim(),
+        nodeLine: cs.getPropertyValue('--node-line').trim(),
+        linkOpacity: cs.getPropertyValue('--link-opacity').trim(),
+        linkOpacity3: cs.getPropertyValue('--link-opacity-3col').trim()
+    };
+}
+
 function buildChart() {
     const sel = getSelections();
+    const tc = getThemeColors();
     let allLabels, allColors, sources, targets, values, linkColors, customdata;
 
     if (mode === 2) {
         const dimL = dims[sel.left], dimR = dims[sel.right];
         if (sel.left === sel.right) { showError('Left and Right must be different dimensions.'); return; }
 
-        const key = getPairKey(sel.left, sel.right);
         const order = ['intent','gpv','tenure','churnto','uv'];
         const reversed = order.indexOf(sel.left) > order.indexOf(sel.right);
         const flows = getFlows(sel.left, sel.right, reversed);
@@ -338,7 +406,7 @@ function buildChart() {
             ...rightVals.map(v => dimR.colors[v] || 'rgba(150,150,150,0.5)')
         ];
 
-        const subset = filterNode ? flows.filter(([a,b]) => a===filterNode || b===filterNode) : flows;
+        const subset = flows.filter(([a,b]) => matchesFilter(a,b));
         const grandTotal = flows.reduce((s,r) => s+r[2], 0);
         const globalTotals = computeTotals(flows);
 
@@ -347,7 +415,7 @@ function buildChart() {
             const si = allLabels.indexOf(a), ti = allLabels.indexOf(b);
             if (si < 0 || ti < 0) return;
             sources.push(si); targets.push(ti); values.push(v);
-            linkColors.push((dimL.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, '0.35)'));
+            linkColors.push((dimL.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, tc.linkOpacity + ')'));
             const pT = ((v/grandTotal)*100).toFixed(1);
             const pS = ((v/(globalTotals[a]||1))*100).toFixed(1);
             const pTg = ((v/(globalTotals[b]||1))*100).toFixed(1);
@@ -375,8 +443,8 @@ function buildChart() {
         ];
 
         const allFlows = [
-            ...flowsLM.map(f => ({...f, seg: 'LM', from: f[0], to: f[1], val: f[2]})),
-            ...flowsMR.map(f => ({...f, seg: 'MR', from: f[0], to: f[1], val: f[2]}))
+            ...flowsLM.map(f => ({seg: 'LM', from: f[0], to: f[1], val: f[2]})),
+            ...flowsMR.map(f => ({seg: 'MR', from: f[0], to: f[1], val: f[2]}))
         ];
         const grandTotal = flowsLM.reduce((s,r) => s+r[2], 0);
         const globalTotals = {};
@@ -387,22 +455,22 @@ function buildChart() {
 
         sources = []; targets = []; values = []; linkColors = []; customdata = [];
 
-        const subsetLM = filterNode ? flowsLM.filter(([a,b]) => a===filterNode || b===filterNode) : flowsLM;
+        const subsetLM = flowsLM.filter(([a,b]) => matchesFilter(a,b));
         subsetLM.forEach(([a, b, v]) => {
             const si = allLabels.indexOf(a), ti = leftVals.length + midVals.indexOf(b);
             if (si < 0 || ti < leftVals.length) return;
             sources.push(si); targets.push(ti); values.push(v);
-            linkColors.push((dimL.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, '0.3)'));
+            linkColors.push((dimL.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, tc.linkOpacity3 + ')'));
             customdata.push([((v/grandTotal)*100).toFixed(1), ((v/(globalTotals[a]||1))*100).toFixed(1), ((v/(globalTotals[b]||1))*100).toFixed(1)]);
         });
 
-        const subsetMR = filterNode ? flowsMR.filter(([a,b]) => a===filterNode || b===filterNode) : flowsMR;
+        const subsetMR = flowsMR.filter(([a,b]) => matchesFilter(a,b));
         subsetMR.forEach(([a, b, v]) => {
             const si = leftVals.length + midVals.indexOf(a);
             const ti = leftVals.length + midVals.length + rightVals.indexOf(b);
             if (si < leftVals.length || ti < leftVals.length + midVals.length) return;
             sources.push(si); targets.push(ti); values.push(v);
-            linkColors.push((dimM.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, '0.3)'));
+            linkColors.push((dimM.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, tc.linkOpacity3 + ')'));
             customdata.push([((v/grandTotal)*100).toFixed(1), ((v/(globalTotals[a]||1))*100).toFixed(1), ((v/(globalTotals[b]||1))*100).toFixed(1)]);
         });
     }
@@ -423,11 +491,15 @@ function buildChart() {
         ? `${dims[sel.left].label} → ${dims[sel.right].label}`
         : `${dims[sel.left].label} → ${dims[sel.mid].label} → ${dims[sel.right].label}`;
 
+    const titleText = filterNodes.size > 0
+        ? `Filtered: ${[...filterNodes].join(' + ')}`
+        : titleParts;
+
     const trace = {
         type: 'sankey', orientation: 'h', arrangement: 'snap',
         node: {
             pad: 20, thickness: 28,
-            line: { color: 'rgba(255,255,255,0.15)', width: 1 },
+            line: { color: tc.nodeLine, width: 1 },
             label: nodeLabels, color: allColors,
             hovertemplate: '<b>%{label}</b><br>%{value:,.0f} users<extra></extra>'
         },
@@ -444,17 +516,18 @@ function buildChart() {
     };
 
     Plotly.newPlot('sankey-chart', [trace], {
-        font: { family: "'Segoe UI', system-ui, sans-serif", size: 12, color: '#d1d5db' },
-        paper_bgcolor: '#0f1117', plot_bgcolor: '#0f1117',
+        font: { family: "'Segoe UI', system-ui, sans-serif", size: 12, color: tc.chartFont },
+        paper_bgcolor: tc.bg, plot_bgcolor: tc.bg,
         margin: { l: 10, r: 10, t: 40, b: 10 }, height: 680,
-        title: { text: filterNode ? `Zoomed: ${filterNode}` : titleParts, font: { size: 14, color: '#a5b4fc' }, x: 0.5, xanchor: 'center' }
+        title: { text: titleText, font: { size: 14, color: tc.accent }, x: 0.5, xanchor: 'center' }
     }, { displayModeBar: true, modeBarButtonsToRemove: ['lasso2d','select2d'], displaylogo: false, responsive: true });
 }
 
 function showError(msg) {
+    const tc = getThemeColors();
     Plotly.newPlot('sankey-chart', [], {
-        paper_bgcolor: '#0f1117', plot_bgcolor: '#0f1117', height: 680,
-        annotations: [{ text: msg, showarrow: false, font: { size: 16, color: '#fca5a5' }, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper' }]
+        paper_bgcolor: tc.bg, plot_bgcolor: tc.bg, height: 680,
+        annotations: [{ text: msg, showarrow: false, font: { size: 16, color: '#ef4444' }, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper' }]
     });
 }
 
@@ -470,8 +543,8 @@ function buildControls() {
     container.innerHTML = '';
     if (sel.left === sel.right || (mode === 3 && (sel.left === sel.mid || sel.mid === sel.right))) return;
 
-    const resetBtn = mk('button', 'filter-btn reset' + (filterNode === '' ? ' active' : ''), 'Show All');
-    resetBtn.onclick = () => { filterNode = ''; buildControls(); buildChart(); updateBanner(); };
+    const resetBtn = mk('button', 'filter-btn reset' + (filterNodes.size === 0 ? ' active' : ''), 'Show All');
+    resetBtn.onclick = () => { filterNodes.clear(); buildControls(); buildChart(); updateBanner(); };
     container.appendChild(resetBtn);
     container.appendChild(mkDiv());
 
@@ -479,8 +552,12 @@ function buildControls() {
         const dim = dims[dimKey];
         container.appendChild(mk('span', 'section-label', label));
         dim.values.forEach(v => {
-            const b = mk('button', 'filter-btn' + (filterNode === v ? ' active' : ''), v);
-            b.onclick = () => { filterNode = v; buildControls(); buildChart(); updateBanner(); };
+            const b = mk('button', 'filter-btn' + (filterNodes.has(v) ? ' active' : ''), v);
+            b.onclick = () => {
+                if (filterNodes.has(v)) filterNodes.delete(v);
+                else filterNodes.add(v);
+                buildControls(); buildChart(); updateBanner();
+            };
             container.appendChild(b);
         });
         container.appendChild(mkDiv());
@@ -493,8 +570,8 @@ function buildControls() {
 
 function updateBanner() {
     const banner = document.getElementById('zoom-banner');
-    if (filterNode) {
-        banner.innerHTML = `Showing flows for <strong>${filterNode}</strong>`;
+    if (filterNodes.size > 0) {
+        banner.innerHTML = `Showing flows for <strong>${[...filterNodes].join(' + ')}</strong>`;
         banner.classList.add('visible');
     } else {
         banner.classList.remove('visible');
@@ -504,20 +581,42 @@ function updateBanner() {
 function mk(tag, cls, txt) { const e = document.createElement(tag); e.className = cls; e.textContent = txt; return e; }
 function mkDiv() { const d = document.createElement('div'); d.className = 'divider'; return d; }
 
+/* ---- Theme toggle ---- */
+let currentTheme = localStorage.getItem('sankey-theme') || 'dark';
+function applyTheme(theme) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('sankey-theme', theme);
+    const icon = document.getElementById('theme-icon');
+    const label = document.getElementById('theme-label');
+    if (theme === 'light') {
+        icon.innerHTML = '&#9728;';
+        label.textContent = 'Dark';
+    } else {
+        icon.innerHTML = '&#9789;';
+        label.textContent = 'Light';
+    }
+}
+function toggleTheme() {
+    applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    buildChart();
+}
+applyTheme(currentTheme);
+
 document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         mode = parseInt(btn.dataset.mode);
         document.getElementById('mid-group').style.display = mode === 3 ? 'flex' : 'none';
-        filterNode = '';
+        filterNodes.clear();
         buildControls(); buildChart(); updateBanner();
     });
 });
 
 ['sel-left','sel-mid','sel-right'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => {
-        filterNode = '';
+        filterNodes.clear();
         buildControls(); buildChart(); updateBanner();
     });
 });
