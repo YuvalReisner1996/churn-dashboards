@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Churn Part 2: Collection-Based Segment Prioritization</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 24px 20px 40px;
+        }
+        .header {
+            text-align: center;
+            max-width: 1100px;
+            margin: 0 auto 8px;
+        }
+        .header h1 { font-size: 1.45rem; font-weight: 600; color: #f5f5f5; margin-bottom: 4px; }
+        .header p { font-size: 0.82rem; color: #9ca3af; line-height: 1.5; }
+        .kpi-row {
+            display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+            max-width: 1100px; margin: 18px auto 24px;
+        }
+        .kpi-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 14px 22px;
+            text-align: center;
+            min-width: 180px;
+            flex: 1;
+            max-width: 220px;
+        }
+        .kpi-card .label {
+            font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: #6b7280; font-weight: 600; margin-bottom: 4px;
+        }
+        .kpi-card .value {
+            font-size: 1.5rem; font-weight: 700; color: #e0e7ff;
+        }
+        .kpi-card .sub {
+            font-size: 0.72rem; color: #9ca3af; margin-top: 2px;
+        }
+        .kpi-card.highlight { border-color: rgba(129,140,248,0.4); background: rgba(129,140,248,0.08); }
+        .kpi-card.highlight .value { color: #a5b4fc; }
+        .chart-row {
+            display: flex; gap: 20px; max-width: 1200px; margin: 0 auto 20px;
+            flex-wrap: wrap; justify-content: center;
+        }
+        .chart-box {
+            flex: 1; min-width: 480px; max-width: 600px;
+        }
+        .chart-full {
+            max-width: 1200px; margin: 0 auto 20px;
+        }
+        .insight-box {
+            max-width: 1100px; margin: 12px auto 0;
+            background: rgba(129,140,248,0.06);
+            border: 1px solid rgba(129,140,248,0.2);
+            border-radius: 10px;
+            padding: 16px 22px;
+        }
+        .insight-box h3 {
+            font-size: 0.82rem; color: #a5b4fc; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+        }
+        .insight-box ul { list-style: none; padding: 0; }
+        .insight-box li {
+            font-size: 0.82rem; color: #d1d5db; line-height: 1.6;
+            padding: 2px 0 2px 16px; position: relative;
+        }
+        .insight-box li::before {
+            content: '→'; position: absolute; left: 0; color: #818cf8;
+        }
+        .footer {
+            text-align: center; padding: 16px 20px 0;
+            font-size: 0.72rem; color: #4b5563;
+            max-width: 1100px; margin: 0 auto;
+        }
+        .sql-section {
+            max-width: 1100px; margin: 20px auto 0;
+        }
+        .sql-toggle {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px 18px;
+            cursor: pointer;
+            font-family: inherit; font-size: 0.82rem;
+            color: #a5b4fc; font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .sql-toggle:hover { background: rgba(255,255,255,0.08); }
+        .sql-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+        .sql-toggle.open .arrow { transform: rotate(90deg); }
+        .sql-content {
+            display: none;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 16px 20px;
+            overflow-x: auto;
+        }
+        .sql-content.open { display: block; }
+        .sql-content h4 {
+            font-size: 0.75rem; color: #818cf8; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin: 16px 0 8px; padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .sql-content h4:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+        .sql-content pre {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 6px;
+            padding: 14px 16px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.75rem;
+            color: #d1d5db;
+            line-height: 1.55;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .sql-content .note {
+            font-size: 0.75rem; color: #6b7280; font-style: italic;
+            margin: 6px 0 0; text-align: left; padding: 0;
+        }
+        .copy-btn {
+            float: right;
+            background: rgba(129,140,248,0.15);
+            border: 1px solid rgba(129,140,248,0.3);
+            border-radius: 4px;
+            padding: 3px 10px;
+            font-size: 0.7rem;
+            color: #a5b4fc;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .copy-btn:hover { background: rgba(129,140,248,0.3); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Collection at Risk: Should We Retain Whales or Volume?</h1>
+    <p>Monthly Wix collection (GPV take-rate + Premium subscription) at risk from active premium churn,<br>
+    based on Q4 2024 averages. Source: <code style="color:#818cf8;">financial_transactions</code> + <code style="color:#818cf8;">earnings_collections_transactions</code></p>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi-card">
+        <div class="label">Total Monthly at Risk</div>
+        <div class="value">$2.77M</div>
+        <div class="sub">~$33M annualized</div>
+    </div>
+    <div class="kpi-card highlight">
+        <div class="label">1 $1M Club Site =</div>
+        <div class="value">1,096</div>
+        <div class="sub">Moonlighters</div>
+    </div>
+    <div class="kpi-card">
+        <div class="label">Top 1.4% of Sites</div>
+        <div class="value">38%</div>
+        <div class="sub">of total value at risk</div>
+    </div>
+    <div class="kpi-card">
+        <div class="label">Moonlighter Premium Share</div>
+        <div class="value">78%</div>
+        <div class="sub">of their value is subscription</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-box" id="chart-total"></div>
+    <div class="chart-box" id="chart-persite"></div>
+</div>
+
+<div class="chart-full" id="chart-composition"></div>
+
+<div class="chart-full" id="chart-exchange"></div>
+
+<div class="insight-box">
+    <h3>Strategic Implications</h3>
+    <ul>
+        <li><strong>Moonlighters are the largest total pool ($859K/mo)</strong> — but value is 78% subscription fees. Retention here means keeping them on any plan, not growing their GPV.</li>
+        <li><strong>$1M Club sites are 1,096x more valuable each</strong> — losing a single one costs as much as losing 1,096 Moonlighters. High-touch retention (dedicated CSM, proactive outreach) is justified.</li>
+        <li><strong>Small Size Merchants may be the "sweet spot"</strong> — 1,853 sites at $222/mo each ($412K total). Large enough to matter individually (8x a Moonlighter), numerous enough for scaled programs.</li>
+        <li><strong>GPV collection dominates above Micro</strong> — for Med+ merchants, the payment processing take-rate is the real revenue. Premium subscription is a rounding error for whales.</li>
+        <li><strong>The top 581 sites (1.4% of cohort)</strong> carry $1.06M/mo in value at risk — more than Moonlighters' entire GPV collection ($186K).</li>
+    </ul>
+</div>
+
+<div class="sql-section">
+    <button class="sql-toggle" onclick="toggleSql(this)">
+        <span class="arrow">▶</span> SQL Methodology — Click to view the queries behind these numbers
+    </button>
+    <div class="sql-content" id="sql-content">
+
+        <h4>Population: Active Premium Churn Cohort</h4>
+        <p class="note">Base table: sandbox.ecom.churn_analysis_base_cohort — filtered to active cancellations only.</p>
+        <pre>WHERE is_premium_churned
+  AND cancel_request_reason_code >= 0  -- Active Churn only</pre>
+
+        <h4>Component 1: GPV Collection (Wix take-rate from payment processing)</h4>
+        <p class="note">Joins ecom GPV transactions to earnings collections to get what Wix actually earns. Averaged across Q4 2024 (Oct-Dec) per site.</p>
+        <button class="copy-btn" onclick="copyQuery('q-gpv')">Copy</button>
+        <pre id="q-gpv">-- Monthly avg GPV collection per churned site (Q4 2024)
+SELECT
+    t.msid,
+    AVG(monthly_coll) AS avg_monthly_gpv_collection
+FROM (
+    SELECT
+        t.msid,
+        DATE_TRUNC('month', t.transaction_date_initiated) AS m,
+        SUM(c.collection_usd) AS monthly_coll
+    FROM prod.ecom.gpv t
+    JOIN prod.mgmt_secure.earnings_collections_transactions c
+        ON t.transaction_id = c.transaction_id
+    WHERE c.business_type IN (
+            'PayPal','Stripe','Wix Payments',
+            'Wix Payments - POS','PayPal Button',
+            'Pinwheel','Square'
+          )
+      AND t.transaction_date_initiated >= DATE '2024-10-01'
+      AND t.transaction_date_initiated &lt; DATE '2025-01-01'
+    GROUP BY 1, 2
+) t
+GROUP BY 1</pre>
+
+        <h4>Component 2: Premium Collection (subscription revenue)</h4>
+        <p class="note">Full transaction history from prod.premium_secure.financial_transactions. All sale types included (charges, renewals, switches, refunds, chargebacks) for true net. Divided by 3 for monthly avg.</p>
+        <button class="copy-btn" onclick="copyQuery('q-prem')">Copy</button>
+        <pre id="q-prem">-- Monthly avg premium collection per churned site (Q4 2024)
+SELECT
+    msid,
+    SUM(net_collection_usd_for_recognition) / 3 AS avg_monthly_premium
+FROM prod.premium_secure.financial_transactions
+WHERE business_type = 'Package'
+  AND transaction_created_date >= DATE '2024-10-01'
+  AND transaction_created_date &lt; DATE '2025-01-01'
+GROUP BY 1</pre>
+
+        <h4>Combined Query: Value at Risk + Exchange Rate</h4>
+        <p class="note">Joins both components to the churn cohort, groups by GPV segment, calculates the "1 $1M Club = N Moonlighters" exchange rate.</p>
+        <button class="copy-btn" onclick="copyQuery('q-full')">Copy</button>
+        <pre id="q-full">WITH cohort_base AS (
+    SELECT msid, online_gpv_group_ecom_q4_24 AS gpv_group
+    FROM sandbox.ecom.churn_analysis_base_cohort
+    WHERE is_premium_churned
+      AND cancel_request_reason_code >= 0
+),
+
+gpv_collection AS (
+    SELECT
+        t.msid,
+        AVG(monthly_coll) AS avg_monthly_gpv_collection
+    FROM (
+        SELECT
+            t.msid,
+            DATE_TRUNC('month', t.transaction_date_initiated) AS m,
+            SUM(c.collection_usd) AS monthly_coll
+        FROM prod.ecom.gpv t
+        JOIN prod.mgmt_secure.earnings_collections_transactions c
+            ON t.transaction_id = c.transaction_id
+        WHERE c.business_type IN (
+                'PayPal','Stripe','Wix Payments',
+                'Wix Payments - POS','PayPal Button',
+                'Pinwheel','Square'
+              )
+          AND t.transaction_date_initiated >= DATE '2024-10-01'
+          AND t.transaction_date_initiated &lt; DATE '2025-01-01'
+        GROUP BY 1, 2
+    ) t
+    GROUP BY 1
+),
+
+premium_collection AS (
+    SELECT
+        msid,
+        SUM(net_collection_usd_for_recognition) / 3 AS avg_monthly_premium
+    FROM prod.premium_secure.financial_transactions
+    WHERE business_type = 'Package'
+      AND transaction_created_date >= DATE '2024-10-01'
+      AND transaction_created_date &lt; DATE '2025-01-01'
+    GROUP BY 1
+),
+
+combined AS (
+    SELECT
+        b.gpv_group,
+        b.msid,
+        COALESCE(g.avg_monthly_gpv_collection, 0) AS gpv_collection,
+        COALESCE(p.avg_monthly_premium, 0)         AS premium_collection
+    FROM cohort_base b
+    LEFT JOIN gpv_collection g ON g.msid = b.msid
+    LEFT JOIN premium_collection p ON p.msid = b.msid
+),
+
+grouped AS (
+    SELECT
+        gpv_group,
+        COUNT(DISTINCT msid)                                    AS sites,
+        ROUND(AVG(gpv_collection), 2)                           AS avg_monthly_gpv_coll,
+        ROUND(AVG(premium_collection), 2)                       AS avg_monthly_premium_coll,
+        ROUND(AVG(gpv_collection) + AVG(premium_collection), 2) AS avg_total_value_per_site,
+        ROUND(SUM(gpv_collection), 2)                           AS total_gpv_collection,
+        ROUND(SUM(premium_collection), 2)                       AS total_premium_collection,
+        ROUND(SUM(gpv_collection) + SUM(premium_collection), 2) AS total_value_at_risk
+    FROM combined
+    GROUP BY gpv_group
+)
+
+SELECT
+    g.*,
+    ROUND(g.avg_total_value_per_site /
+        NULLIF((SELECT avg_total_value_per_site
+                FROM grouped WHERE gpv_group = 'Moonlighters'), 0), 1)
+        AS one_site_equals_n_moonlighters
+FROM grouped g
+ORDER BY
+    CASE g.gpv_group
+        WHEN '$1M Club' THEN 1
+        WHEN 'Big Merchants' THEN 2
+        WHEN 'Med size Merchants' THEN 3
+        WHEN 'Small Size Merchants' THEN 4
+        WHEN 'Micro size Merchants' THEN 5
+        WHEN 'Moonlighters' THEN 6
+    END</pre>
+
+        <h4>Key Tables Used</h4>
+        <pre>sandbox.ecom.churn_analysis_base_cohort     -- Churned sites cohort with GPV groups, tenure, cancel reasons
+prod.ecom.gpv                                -- Transaction-level GPV (payment volume)
+prod.mgmt_secure.earnings_collections_transactions  -- Wix's actual collection/earnings per transaction
+prod.premium_secure.financial_transactions   -- Full premium subscription transaction history (Tier 1)
+prod.ecom.active_sites_breakdowns_monthly    -- Monthly site-level GPV breakdowns (used in Query 1)</pre>
+
+    </div>
+</div>
+
+<div class="footer">
+    Active premium churn cohort · Q4 2024 monthly averages · 40,378 total sites
+</div>
+
+<script>
+const groups = ['$1M Club','Big Merchants','Med size Merchants','Small Size Merchants','Micro size Merchants','Moonlighters'];
+const sites =  [17, 163, 401, 1853, 5959, 31985];
+const gpvColl = [499513, 274202, 274350, 366936, 294201, 185764];
+const premColl = [503, 5447, 10465, 45147, 140604, 672847];
+const totalRisk = gpvColl.map((g, i) => g + premColl[i]);
+const avgGpv =  [29383, 1682, 684, 198, 49, 6];
+const avgPrem = [30, 33, 26, 24, 24, 21];
+const avgTotal = avgGpv.map((g, i) => g + avgPrem[i]);
+const exchangeRate = [1096, 64, 26, 8, 3, 1];
+
+const colors = {
+    gpv: 'rgba(99,102,241,0.85)',
+    premium: 'rgba(52,211,153,0.85)',
+    gpvLight: 'rgba(99,102,241,0.5)',
+    premLight: 'rgba(52,211,153,0.5)',
+    accent: '#818cf8',
+    text: '#d1d5db',
+    bg: '#0f1117',
+    grid: 'rgba(255,255,255,0.06)'
+};
+
+const layoutBase = {
+    paper_bgcolor: colors.bg,
+    plot_bgcolor: colors.bg,
+    font: { family: "'Segoe UI', system-ui, sans-serif", size: 12, color: colors.text },
+    margin: { l: 60, r: 30, t: 50, b: 80 },
+    xaxis: { gridcolor: colors.grid, tickangle: -20 },
+    yaxis: { gridcolor: colors.grid },
+    legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    bargap: 0.3
+};
+
+// Chart 1: Total Value at Risk (stacked)
+Plotly.newPlot('chart-total', [
+    {
+        x: groups, y: gpvColl.map(v => v/1000), name: 'GPV Collection',
+        type: 'bar', marker: { color: colors.gpv, cornerradius: 4 },
+        hovertemplate: '<b>%{x}</b><br>GPV Collection: $%{y:.0f}K/mo<extra></extra>'
+    },
+    {
+        x: groups, y: premColl.map(v => v/1000), name: 'Premium Collection',
+        type: 'bar', marker: { color: colors.premium, cornerradius: 4 },
+        hovertemplate: '<b>%{x}</b><br>Premium: $%{y:.0f}K/mo<extra></extra>'
+    }
+], {
+    ...layoutBase,
+    barmode: 'stack',
+    title: { text: 'Total Monthly Collection at Risk by Segment', font: { size: 14, color: '#a5b4fc' }, x: 0.5 },
+    yaxis: { ...layoutBase.yaxis, title: { text: '$ Thousands / month', font: { size: 11 } } },
+    height: 420,
+    annotations: [
+        ...groups.map((g, i) => {
+            const gpvPctVal = (gpvColl[i] / totalRisk[i] * 100).toFixed(0);
+            const premPctVal = (premColl[i] / totalRisk[i] * 100).toFixed(0);
+            return {
+                x: g, y: totalRisk[i]/1000 + 55,
+                text: `<b>$${Math.round(totalRisk[i]/1000)}K</b><br><span style="color:#818cf8">GPV ${gpvPctVal}%</span> · <span style="color:#34d399">Prem ${premPctVal}%</span>`,
+                showarrow: false, font: { size: 10, color: '#9ca3af' },
+                align: 'center'
+            };
+        })
+    ]
+});
+
+// Chart 2: Per-Site Value (stacked)
+Plotly.newPlot('chart-persite', [
+    {
+        x: groups, y: avgGpv, name: 'GPV Collection / site',
+        type: 'bar', marker: { color: colors.gpv, cornerradius: 4 },
+        hovertemplate: '<b>%{x}</b><br>GPV/site: $%{y:,.0f}/mo<extra></extra>'
+    },
+    {
+        x: groups, y: avgPrem, name: 'Premium / site',
+        type: 'bar', marker: { color: colors.premium, cornerradius: 4 },
+        hovertemplate: '<b>%{x}</b><br>Premium/site: $%{y:,.0f}/mo<extra></extra>'
+    }
+], {
+    ...layoutBase,
+    barmode: 'stack',
+    title: { text: 'Average Monthly Collection per Site', font: { size: 14, color: '#a5b4fc' }, x: 0.5 },
+    yaxis: { ...layoutBase.yaxis, type: 'log', title: { text: '$ / site / month (log scale)', font: { size: 11 } } },
+    height: 420,
+    annotations: [
+        ...groups.map((g, i) => {
+            const gpvPctVal = (avgGpv[i] / avgTotal[i] * 100).toFixed(0);
+            const premPctVal = (avgPrem[i] / avgTotal[i] * 100).toFixed(0);
+            return {
+                x: g, y: Math.log10(avgTotal[i]) + 0.22,
+                text: `<b>$${avgTotal[i].toLocaleString()}</b><br><span style="color:#818cf8">GPV ${gpvPctVal}%</span> · <span style="color:#34d399">Prem ${premPctVal}%</span>`,
+                showarrow: false, font: { size: 10, color: '#9ca3af' },
+                align: 'center'
+            };
+        })
+    ]
+});
+
+// Chart 3: Revenue composition (% stacked)
+const gpvPct = groups.map((_, i) => (avgGpv[i] / avgTotal[i]) * 100);
+const premPct = groups.map((_, i) => (avgPrem[i] / avgTotal[i]) * 100);
+
+Plotly.newPlot('chart-composition', [
+    {
+        x: groups, y: gpvPct, name: 'GPV Collection %',
+        type: 'bar', marker: { color: colors.gpv },
+        hovertemplate: '<b>%{x}</b><br>GPV: %{y:.1f}%<extra></extra>',
+        text: gpvPct.map(v => v > 8 ? v.toFixed(0) + '%' : ''),
+        textposition: 'inside', textfont: { color: '#fff', size: 11 }
+    },
+    {
+        x: groups, y: premPct, name: 'Premium Collection %',
+        type: 'bar', marker: { color: colors.premium },
+        hovertemplate: '<b>%{x}</b><br>Premium: %{y:.1f}%<extra></extra>',
+        text: premPct.map(v => v > 8 ? v.toFixed(0) + '%' : ''),
+        textposition: 'inside', textfont: { color: '#fff', size: 11 }
+    }
+], {
+    ...layoutBase,
+    barmode: 'stack',
+    title: { text: 'Revenue Mix: GPV Collection vs Premium — Shifts Entirely by Segment', font: { size: 14, color: '#a5b4fc' }, x: 0.5 },
+    yaxis: { ...layoutBase.yaxis, title: { text: '% of total collection', font: { size: 11 } }, range: [0, 105] },
+    height: 340,
+    margin: { ...layoutBase.margin, t: 50, b: 70 }
+});
+
+// Chart 4: Exchange Rate
+const barColors = exchangeRate.map((_, i) =>
+    i === 0 ? 'rgba(239,68,68,0.8)' :
+    i === 1 ? 'rgba(251,146,60,0.8)' :
+    i === 2 ? 'rgba(251,191,36,0.8)' :
+    i === 3 ? 'rgba(52,211,153,0.8)' :
+    i === 4 ? 'rgba(96,165,250,0.8)' :
+    'rgba(148,163,184,0.5)'
+);
+
+Plotly.newPlot('chart-exchange', [
+    {
+        x: groups, y: exchangeRate,
+        type: 'bar',
+        marker: { color: barColors, cornerradius: 6 },
+        hovertemplate: '<b>%{x}</b><br>1 site = %{y:,.0f} Moonlighters<extra></extra>',
+        text: exchangeRate.map(v => v === 1 ? '' : `${v.toLocaleString()}x`),
+        textposition: 'outside',
+        textfont: { color: '#e0e7ff', size: 13, family: "'Segoe UI', system-ui, sans-serif" }
+    }
+], {
+    ...layoutBase,
+    title: { text: 'The Exchange Rate: 1 Site in Group X = How Many Moonlighters?', font: { size: 14, color: '#a5b4fc' }, x: 0.5 },
+    yaxis: { ...layoutBase.yaxis, type: 'log', title: { text: 'Equivalent Moonlighters (log scale)', font: { size: 11 } },
+        dtick: 1, range: [0, 3.2] },
+    height: 370,
+    margin: { ...layoutBase.margin, t: 50, b: 70 },
+    showlegend: false,
+    annotations: [{
+        x: '$1M Club', y: Math.log10(1096) + 0.12,
+        text: '1 whale = 1,096 minnows',
+        showarrow: false, font: { size: 11, color: '#fca5a5', style: 'italic' }
+    }]
+});
+
+function toggleSql(btn) {
+    btn.classList.toggle('open');
+    document.getElementById('sql-content').classList.toggle('open');
+}
+
+function copyQuery(id) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`#${id}`).previousElementSibling;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 1500);
+    });
+}
+</script>
+</body>
+</html>

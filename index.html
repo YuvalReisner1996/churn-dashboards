@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Churn 2025: Sankey Explorer</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1117; color: #e0e0e0;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .header { text-align: center; padding: 28px 20px 6px; max-width: 1000px; }
+        .header h1 { font-size: 1.5rem; font-weight: 600; color: #f5f5f5; margin-bottom: 4px; }
+        .header p { font-size: 0.85rem; color: #9ca3af; line-height: 1.4; }
+
+        .config-panel {
+            display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
+            justify-content: center;
+            padding: 16px 20px 8px; max-width: 1100px;
+        }
+        .config-group { display: flex; flex-direction: column; gap: 4px; }
+        .config-group label {
+            font-size: 0.68rem; color: #818cf8; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .config-group select {
+            padding: 8px 12px; border-radius: 8px;
+            border: 1.5px solid rgba(129,140,248,0.3);
+            background: rgba(255,255,255,0.05); color: #e0e0e0;
+            font-family: inherit; font-size: 0.82rem;
+            cursor: pointer; min-width: 170px;
+        }
+        .config-group select:focus { outline: none; border-color: #818cf8; }
+
+        .mode-toggle {
+            display: flex; gap: 0; border-radius: 8px; overflow: hidden;
+            border: 1.5px solid rgba(129,140,248,0.25);
+        }
+        .mode-btn {
+            padding: 8px 18px; background: rgba(255,255,255,0.03);
+            color: #9ca3af; font-size: 0.82rem; cursor: pointer;
+            border: none; font-family: inherit; transition: all 0.2s;
+            border-right: 1px solid rgba(129,140,248,0.15);
+        }
+        .mode-btn:last-child { border-right: none; }
+        .mode-btn:hover { background: rgba(129,140,248,0.1); color: #c7d2fe; }
+        .mode-btn.active { background: rgba(129,140,248,0.22); color: #e0e7ff; font-weight: 600; }
+
+        .controls {
+            display: flex; flex-wrap: wrap; gap: 7px;
+            justify-content: center; padding: 10px 20px 2px; max-width: 1200px;
+        }
+        .filter-btn {
+            padding: 5px 13px; border-radius: 18px;
+            border: 1.5px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04); color: #d1d5db;
+            font-size: 0.75rem; cursor: pointer;
+            transition: all 0.2s; font-family: inherit;
+        }
+        .filter-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.22); }
+        .filter-btn.active {
+            background: rgba(129,140,248,0.22); border-color: #818cf8;
+            color: #c7d2fe; font-weight: 600;
+        }
+        .filter-btn.reset {
+            background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: #fca5a5;
+        }
+        .filter-btn.reset:hover { background: rgba(239,68,68,0.25); }
+        .section-label {
+            display: flex; align-items: center;
+            font-size: 0.65rem; color: #6b7280;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            padding: 0 3px; font-weight: 600;
+        }
+        .divider { width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 3px; }
+
+        .zoom-banner {
+            display: none; text-align: center; padding: 6px 20px;
+            font-size: 0.8rem; color: #818cf8; animation: fadeIn 0.3s;
+        }
+        .zoom-banner.visible { display: block; }
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+
+        #sankey-chart { width: 96%; max-width: 1300px; height: 700px; }
+
+        .footer-note {
+            text-align: center; padding: 6px 20px;
+            font-size: 0.72rem; color: #6b7280; max-width: 1100px;
+        }
+
+        .sql-section { max-width: 1100px; margin: 16px auto 0; width: 96%; }
+        .sql-toggle {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            padding: 10px 18px; cursor: pointer;
+            font-family: inherit; font-size: 0.82rem;
+            color: #a5b4fc; font-weight: 600; width: 100%;
+            transition: background 0.2s;
+        }
+        .sql-toggle:hover { background: rgba(255,255,255,0.08); }
+        .sql-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+        .sql-toggle.open .arrow { transform: rotate(90deg); }
+        .sql-content {
+            display: none; background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.08); border-top: none;
+            border-radius: 0 0 8px 8px; padding: 16px 20px; overflow-x: auto;
+        }
+        .sql-content.open { display: block; }
+        .sql-content h4 {
+            font-size: 0.75rem; color: #818cf8; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            margin: 14px 0 6px; padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        .sql-content h4:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+        .sql-content pre {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
+            padding: 14px 16px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.73rem; color: #d1d5db; line-height: 1.5;
+            overflow-x: auto; white-space: pre;
+        }
+        .sql-content .note {
+            font-size: 0.73rem; color: #6b7280; font-style: italic; margin: 4px 0 0;
+        }
+        .copy-btn {
+            float: right; background: rgba(129,140,248,0.15);
+            border: 1px solid rgba(129,140,248,0.3); border-radius: 4px;
+            padding: 3px 10px; font-size: 0.7rem; color: #a5b4fc;
+            cursor: pointer; font-family: inherit;
+        }
+        .copy-btn:hover { background: rgba(129,140,248,0.3); }
+
+        .footer {
+            text-align: center; padding: 12px 20px 30px;
+            font-size: 0.7rem; color: #4b5563; max-width: 1100px; margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Active Churn 2025: Sankey Explorer</h1>
+    <p>Explore flows between any combination of dimensions for actively churned eComm users.<br>
+    Source: <code style="color:#818cf8;">sandbox.ecom.active_churned_users_reasons_2025</code></p>
+</div>
+
+<div class="config-panel">
+    <div class="config-group">
+        <label>Columns</label>
+        <div class="mode-toggle" id="mode-toggle">
+            <button class="mode-btn active" data-mode="2">2 Columns</button>
+            <button class="mode-btn" data-mode="3">3 Columns</button>
+        </div>
+    </div>
+    <div class="config-group">
+        <label>Left Axis</label>
+        <select id="sel-left">
+            <option value="intent" selected>Intent Category</option>
+            <option value="gpv">GPV Group</option>
+            <option value="tenure">Premium Tenure</option>
+            <option value="churnto">Churn To (Competitor)</option>
+            <option value="uv">UserVoice Issue</option>
+        </select>
+    </div>
+    <div class="config-group" id="mid-group" style="display:none;">
+        <label>Middle Axis</label>
+        <select id="sel-mid">
+            <option value="intent">Intent Category</option>
+            <option value="gpv" selected>GPV Group</option>
+            <option value="tenure">Premium Tenure</option>
+            <option value="churnto">Churn To (Competitor)</option>
+            <option value="uv">UserVoice Issue</option>
+        </select>
+    </div>
+    <div class="config-group">
+        <label>Right Axis</label>
+        <select id="sel-right">
+            <option value="intent">Intent Category</option>
+            <option value="gpv" selected>GPV Group</option>
+            <option value="tenure">Premium Tenure</option>
+            <option value="churnto">Churn To (Competitor)</option>
+            <option value="uv">UserVoice Issue</option>
+        </select>
+    </div>
+</div>
+
+<div class="controls" id="controls"></div>
+<div class="zoom-banner" id="zoom-banner"></div>
+<div id="sankey-chart"></div>
+<div class="footer-note">Click filter buttons to zoom into a node. Hover for share %. Choose any dimension combination above.</div>
+
+<div class="sql-section">
+    <button class="sql-toggle" onclick="toggleSql(this)">
+        <span class="arrow">&#9654;</span> SQL Methodology — Click to view the queries behind this data
+    </button>
+    <div class="sql-content" id="sql-content">
+
+        <h4>Source Table</h4>
+        <p class="note">Pre-aggregated table with LLM-classified intent categories, GPV groups, tenure buckets, competitor destinations, and UserVoice flags.</p>
+        <pre>sandbox.ecom.active_churned_users_reasons_2025</pre>
+
+        <h4>Pairwise Flow Query (generates all Sankey links)</h4>
+        <p class="note">Each dimension pair is aggregated separately and unioned. Competitors with &lt;3 total appearances are consolidated into "Other Competitors".</p>
+        <button class="copy-btn" onclick="copyQuery('q-pairs')">Copy</button>
+        <pre id="q-pairs">-- All pairwise dimension flows for flexible Sankey
+-- Example: Intent Category → GPV Group
+SELECT 'intent__gpv' AS pair,
+       intent_category AS dim_a,
+       online_gpv_group_ecom_q4_24 AS dim_b,
+       CAST(SUM(cnt_msid) AS BIGINT) AS cnt
+FROM sandbox.ecom.active_churned_users_reasons_2025
+WHERE intent_category IS NOT NULL
+  AND online_gpv_group_ecom_q4_24 IS NOT NULL
+GROUP BY 1, 2, 3
+HAVING SUM(cnt_msid) >= 1
+
+UNION ALL
+
+-- GPV Group → Premium Tenure
+SELECT 'gpv__tenure',
+       online_gpv_group_ecom_q4_24,
+       premium_tenure_bucket,
+       CAST(SUM(cnt_msid) AS BIGINT)
+FROM sandbox.ecom.active_churned_users_reasons_2025
+WHERE online_gpv_group_ecom_q4_24 IS NOT NULL
+  AND premium_tenure_bucket IS NOT NULL
+GROUP BY 1, 2, 3
+HAVING SUM(cnt_msid) >= 1
+
+-- ... repeated for all 10 dimension pairs:
+-- intent__tenure, intent__churnto, intent__uv,
+-- gpv__churnto, gpv__uv,
+-- tenure__churnto, tenure__uv,
+-- churnto__uv
+
+ORDER BY pair, cnt DESC</pre>
+
+        <h4>Dimensions Available</h4>
+        <pre>intent_category          — 7 categories (Business Closure, Price-Related, Competitor Migration, etc.)
+online_gpv_group_ecom_q4_24 — 6 GPV tiers ($1M Club → Moonlighters)
+premium_tenure_bucket    — 7 buckets (0-6 months → 36+ months)
+churn_to                 — 13 competitors + Other (Shopify, WooCommerce, Squarespace, etc.)
+had_user_voice_issue     — Boolean (Had UV Issue / No UV Issue)</pre>
+
+        <h4>Key Table</h4>
+        <pre>sandbox.ecom.active_churned_users_reasons_2025
+  -- Pre-aggregated from churn_analysis_base_cohort
+  -- Contains LLM-classified intent_category from cancel reason text
+  -- 40,378 active premium churned sites (Q1 2025)
+  -- cnt_msid = count of sites per dimension combination</pre>
+    </div>
+</div>
+
+<div class="footer">
+    Active premium churn cohort · 40,378 sites · Q1 2025
+</div>
+
+<script>
+const dims = {
+    intent: {
+        key: 'intent', label: 'Intent Category',
+        values: ["Business Closure/Issues","Price-Related","Unknown","Competitor Migration","Billing/Account Issues","Product/Feature Gaps","Technical/Quality Issues"],
+        colors: {"Business Closure/Issues":"rgba(239,68,68,0.8)","Price-Related":"rgba(251,146,60,0.8)","Unknown":"rgba(156,163,175,0.8)","Competitor Migration":"rgba(167,139,250,0.8)","Billing/Account Issues":"rgba(251,191,36,0.8)","Product/Feature Gaps":"rgba(96,165,250,0.8)","Technical/Quality Issues":"rgba(52,211,153,0.8)"}
+    },
+    gpv: {
+        key: 'gpv', label: 'GPV Group',
+        values: ["$1M Club","Big Merchants","Med size Merchants","Small Size Merchants","Micro size Merchants","Moonlighters"],
+        colors: {"$1M Club":"rgba(20,184,166,0.85)","Big Merchants":"rgba(139,92,246,0.85)","Med size Merchants":"rgba(236,72,153,0.85)","Small Size Merchants":"rgba(245,158,11,0.85)","Micro size Merchants":"rgba(16,185,129,0.85)","Moonlighters":"rgba(59,130,246,0.85)"}
+    },
+    tenure: {
+        key: 'tenure', label: 'Premium Tenure',
+        values: ["0-6 months","6-12 months","12-18 months","18-24 months","24-30 months","30-36 months","36+ months"],
+        colors: {"0-6 months":"rgba(52,211,153,0.85)","6-12 months":"rgba(96,165,250,0.85)","12-18 months":"rgba(251,146,60,0.85)","18-24 months":"rgba(236,72,153,0.85)","24-30 months":"rgba(167,139,250,0.85)","30-36 months":"rgba(245,158,11,0.85)","36+ months":"rgba(239,68,68,0.85)"}
+    },
+    churnto: {
+        key: 'churnto', label: 'Churn To',
+        values: ["Shopify","WooCommerce","Squarespace","Custom Site","Tiendanube","Weebly","Shopify Plus","Etsy","Big Cartel","Odoo","Kajabi","GoDaddy","Other Competitors"],
+        colors: {"Shopify":"rgba(249,115,22,0.85)","WooCommerce":"rgba(34,197,94,0.85)","Squarespace":"rgba(168,85,247,0.85)","Custom Site":"rgba(14,165,233,0.85)","Tiendanube":"rgba(234,179,8,0.85)","Weebly":"rgba(244,63,94,0.85)","Shopify Plus":"rgba(249,115,22,0.65)","Etsy":"rgba(251,146,60,0.85)","Big Cartel":"rgba(236,72,153,0.85)","Odoo":"rgba(20,184,166,0.85)","Kajabi":"rgba(99,102,241,0.85)","GoDaddy":"rgba(16,185,129,0.85)","Other Competitors":"rgba(100,116,139,0.7)"}
+    },
+    uv: {
+        key: 'uv', label: 'UserVoice',
+        values: ["Had UV Issue","No UV Issue"],
+        colors: {"Had UV Issue":"rgba(251,146,60,0.85)","No UV Issue":"rgba(59,130,246,0.85)"}
+    }
+};
+
+const pairData = {"churnto__uv":[["Shopify","No UV Issue",2700],["WooCommerce","No UV Issue",831],["Shopify","Had UV Issue",613],["Squarespace","No UV Issue",265],["Other Competitors","No UV Issue",226],["Custom Site","No UV Issue",168],["WooCommerce","Had UV Issue",149],["Tiendanube","No UV Issue",120],["Squarespace","Had UV Issue",65],["Weebly","No UV Issue",64],["Big Cartel","No UV Issue",34],["Odoo","No UV Issue",31],["Kajabi","No UV Issue",24],["Other Competitors","Had UV Issue",24],["Shopify Plus","No UV Issue",24],["GoDaddy","No UV Issue",23],["Custom Site","Had UV Issue",23],["Etsy","No UV Issue",21],["Weebly","Had UV Issue",14],["GoDaddy","Had UV Issue",12],["Etsy","Had UV Issue",6],["Shopify Plus","Had UV Issue",5],["Kajabi","Had UV Issue",3],["Big Cartel","Had UV Issue",2],["Odoo","Had UV Issue",1]],"gpv__churnto":[["Moonlighters","Shopify",1879],["Micro size Merchants","Shopify",809],["Moonlighters","WooCommerce",628],["Small Size Merchants","Shopify",433],["Micro size Merchants","WooCommerce",232],["Moonlighters","Squarespace",227],["Moonlighters","Other Competitors",167],["Moonlighters","Custom Site",128],["Med size Merchants","Shopify",123],["Micro size Merchants","Squarespace",91],["Small Size Merchants","WooCommerce",91],["Moonlighters","Tiendanube",81],["Big Merchants","Shopify",65],["Moonlighters","Weebly",57],["Micro size Merchants","Other Competitors",48],["Micro size Merchants","Custom Site",43],["Moonlighters","Big Cartel",28],["Moonlighters","GoDaddy",26],["Moonlighters","Etsy",26],["Micro size Merchants","Tiendanube",22],["Moonlighters","Kajabi",21],["Small Size Merchants","Other Competitors",20],["Med size Merchants","WooCommerce",19],["Micro size Merchants","Weebly",16],["Small Size Merchants","Custom Site",16],["Micro size Merchants","Odoo",16],["Small Size Merchants","Tiendanube",12],["Moonlighters","Odoo",12],["Small Size Merchants","Squarespace",11],["Moonlighters","Shopify Plus",10],["Small Size Merchants","Shopify Plus",9],["Med size Merchants","Other Competitors",9],["Big Merchants","WooCommerce",9],["Micro size Merchants","Big Cartel",7],["Micro size Merchants","GoDaddy",5],["Big Merchants","Other Competitors",5],["Micro size Merchants","Shopify Plus",5],["Micro size Merchants","Kajabi",5],["Med size Merchants","Tiendanube",4],["Small Size Merchants","Odoo",4],["$1M Club","Shopify",4],["Small Size Merchants","GoDaddy",4],["Big Merchants","Shopify Plus",3],["Small Size Merchants","Weebly",3],["Med size Merchants","Custom Site",2],["Med size Merchants","Weebly",2],["Big Merchants","Custom Site",2],["Med size Merchants","Shopify Plus",2],["$1M Club","Other Competitors",1],["Med size Merchants","Big Cartel",1],["$1M Club","WooCommerce",1],["Big Merchants","Tiendanube",1],["Med size Merchants","Squarespace",1],["Micro size Merchants","Etsy",1],["Small Size Merchants","Kajabi",1]],"gpv__tenure":[["Moonlighters","36+ months",12368],["Moonlighters","12-18 months",7359],["Moonlighters","24-30 months",4286],["Micro size Merchants","36+ months",2915],["Moonlighters","6-12 months",2498],["Moonlighters","0-6 months",2243],["Moonlighters","18-24 months",1785],["Moonlighters","30-36 months",1446],["Micro size Merchants","12-18 months",987],["Small Size Merchants","36+ months",972],["Micro size Merchants","24-30 months",811],["Micro size Merchants","18-24 months",376],["Micro size Merchants","6-12 months",324],["Micro size Merchants","30-36 months",322],["Small Size Merchants","12-18 months",276],["Small Size Merchants","24-30 months",250],["Micro size Merchants","0-6 months",224],["Med size Merchants","36+ months",222],["Small Size Merchants","18-24 months",101],["Small Size Merchants","6-12 months",98],["Big Merchants","36+ months",89],["Small Size Merchants","30-36 months",86],["Small Size Merchants","0-6 months",70],["Med size Merchants","12-18 months",62],["Med size Merchants","24-30 months",44],["Med size Merchants","30-36 months",24],["Med size Merchants","18-24 months",22],["Big Merchants","24-30 months",22],["Big Merchants","12-18 months",22],["Med size Merchants","6-12 months",14],["Med size Merchants","0-6 months",13],["Big Merchants","18-24 months",11],["Big Merchants","30-36 months",11],["Big Merchants","6-12 months",5],["$1M Club","36+ months",5],["$1M Club","18-24 months",4],["$1M Club","30-36 months",3],["Big Merchants","0-6 months",3],["$1M Club","12-18 months",2],["$1M Club","24-30 months",2],["$1M Club","6-12 months",1]],"gpv__uv":[["Moonlighters","No UV Issue",28934],["Micro size Merchants","No UV Issue",5061],["Moonlighters","Had UV Issue",3051],["Small Size Merchants","No UV Issue",1474],["Micro size Merchants","Had UV Issue",898],["Small Size Merchants","Had UV Issue",379],["Med size Merchants","No UV Issue",300],["Big Merchants","No UV Issue",116],["Med size Merchants","Had UV Issue",101],["Big Merchants","Had UV Issue",47],["$1M Club","No UV Issue",11],["$1M Club","Had UV Issue",6]],"intent__churnto":[["Competitor Migration","Shopify",1542],["Business Closure/Issues","Shopify",599],["Competitor Migration","WooCommerce",362],["Unknown","Shopify",342],["Price-Related","Shopify",335],["Business Closure/Issues","WooCommerce",241],["Product/Feature Gaps","Shopify",194],["Billing/Account Issues","Shopify",192],["Price-Related","WooCommerce",174],["Competitor Migration","Squarespace",151],["Unknown","WooCommerce",110],["Technical/Quality Issues","Shopify",109],["Competitor Migration","Other Competitors",74],["Competitor Migration","Custom Site",57],["Billing/Account Issues","WooCommerce",57],["Price-Related","Squarespace",53],["Unknown","Squarespace",49],["Business Closure/Issues","Other Competitors",48],["Business Closure/Issues","Custom Site",41],["Unknown","Other Competitors",39],["Business Closure/Issues","Squarespace",34],["Price-Related","Other Competitors",33],["Price-Related","Custom Site",33],["Billing/Account Issues","Squarespace",31],["Competitor Migration","Tiendanube",30],["Competitor Migration","Weebly",28],["Business Closure/Issues","Tiendanube",28],["Unknown","Tiendanube",26],["Unknown","Custom Site",26],["Product/Feature Gaps","WooCommerce",25],["Product/Feature Gaps","Other Competitors",25],["Billing/Account Issues","Other Competitors",24],["Price-Related","Big Cartel",19],["Competitor Migration","Shopify Plus",19],["Competitor Migration","Odoo",18],["Product/Feature Gaps","Tiendanube",18],["Price-Related","Weebly",16],["Business Closure/Issues","Weebly",15],["Price-Related","Etsy",14],["Product/Feature Gaps","Custom Site",13],["Billing/Account Issues","Custom Site",13],["Competitor Migration","Kajabi",11],["Technical/Quality Issues","WooCommerce",11],["Competitor Migration","GoDaddy",9],["Technical/Quality Issues","Custom Site",8],["Billing/Account Issues","Weebly",8],["Business Closure/Issues","Kajabi",8],["Business Closure/Issues","GoDaddy",8],["Technical/Quality Issues","Other Competitors",7],["Unknown","GoDaddy",7],["Technical/Quality Issues","Squarespace",7],["Business Closure/Issues","Etsy",6],["Business Closure/Issues","Big Cartel",6],["Price-Related","Tiendanube",6],["Price-Related","GoDaddy",6],["Technical/Quality Issues","Tiendanube",6],["Business Closure/Issues","Odoo",6],["Unknown","Weebly",6],["Billing/Account Issues","Tiendanube",6],["Product/Feature Gaps","Squarespace",5],["Business Closure/Issues","Shopify Plus",4],["Unknown","Kajabi",4],["Billing/Account Issues","GoDaddy",4],["Unknown","Big Cartel",4],["Competitor Migration","Etsy",4],["Unknown","Odoo",3],["Billing/Account Issues","Odoo",3],["Product/Feature Gaps","Weebly",3],["Competitor Migration","Big Cartel",3],["Product/Feature Gaps","Kajabi",2],["Product/Feature Gaps","Shopify Plus",2],["Technical/Quality Issues","Big Cartel",2],["Billing/Account Issues","Shopify Plus",2],["Price-Related","Odoo",2],["Billing/Account Issues","Big Cartel",2],["Technical/Quality Issues","Weebly",2],["Price-Related","Kajabi",1],["Technical/Quality Issues","GoDaddy",1],["Price-Related","Shopify Plus",1],["Unknown","Etsy",1],["Billing/Account Issues","Etsy",1],["Technical/Quality Issues","Kajabi",1],["Technical/Quality Issues","Shopify Plus",1],["Technical/Quality Issues","Etsy",1]],"intent__gpv":[["Business Closure/Issues","Moonlighters",11342],["Price-Related","Moonlighters",9369],["Unknown","Moonlighters",4696],["Competitor Migration","Moonlighters",3467],["Business Closure/Issues","Micro size Merchants",2187],["Billing/Account Issues","Moonlighters",1881],["Competitor Migration","Micro size Merchants",1177],["Price-Related","Micro size Merchants",1036],["Unknown","Micro size Merchants",890],["Business Closure/Issues","Small Size Merchants",685],["Product/Feature Gaps","Moonlighters",631],["Technical/Quality Issues","Moonlighters",599],["Competitor Migration","Small Size Merchants",496],["Billing/Account Issues","Micro size Merchants",393],["Unknown","Small Size Merchants",245],["Price-Related","Small Size Merchants",215],["Product/Feature Gaps","Micro size Merchants",161],["Business Closure/Issues","Med size Merchants",143],["Competitor Migration","Med size Merchants",126],["Technical/Quality Issues","Micro size Merchants",115],["Billing/Account Issues","Small Size Merchants",106],["Product/Feature Gaps","Small Size Merchants",73],["Unknown","Med size Merchants",67],["Competitor Migration","Big Merchants",65],["Business Closure/Issues","Big Merchants",46],["Technical/Quality Issues","Small Size Merchants",33],["Price-Related","Med size Merchants",28],["Unknown","Big Merchants",26],["Billing/Account Issues","Med size Merchants",17],["Billing/Account Issues","Big Merchants",14],["Product/Feature Gaps","Med size Merchants",12],["Technical/Quality Issues","Med size Merchants",8],["Price-Related","Big Merchants",7],["Competitor Migration","$1M Club",6],["Unknown","$1M Club",5],["Product/Feature Gaps","Big Merchants",3],["Business Closure/Issues","$1M Club",3],["Technical/Quality Issues","Big Merchants",2],["Price-Related","$1M Club",2],["Billing/Account Issues","$1M Club",1]],"intent__tenure":[["Business Closure/Issues","36+ months",5838],["Price-Related","36+ months",4471],["Business Closure/Issues","12-18 months",3195],["Competitor Migration","36+ months",2539],["Price-Related","12-18 months",2309],["Unknown","36+ months",2131],["Business Closure/Issues","24-30 months",1883],["Price-Related","24-30 months",1446],["Unknown","12-18 months",1314],["Business Closure/Issues","6-12 months",1083],["Billing/Account Issues","36+ months",1022],["Competitor Migration","12-18 months",937],["Business Closure/Issues","0-6 months",937],["Unknown","24-30 months",821],["Business Closure/Issues","18-24 months",801],["Price-Related","6-12 months",740],["Competitor Migration","24-30 months",706],["Business Closure/Issues","30-36 months",669],["Price-Related","0-6 months",645],["Billing/Account Issues","12-18 months",578],["Price-Related","18-24 months",546],["Price-Related","30-36 months",500],["Unknown","6-12 months",498],["Unknown","18-24 months",435],["Unknown","0-6 months",434],["Billing/Account Issues","24-30 months",364],["Competitor Migration","6-12 months",336],["Competitor Migration","18-24 months",316],["Product/Feature Gaps","36+ months",314],["Unknown","30-36 months",296],["Competitor Migration","0-6 months",257],["Technical/Quality Issues","36+ months",256],["Competitor Migration","30-36 months",246],["Product/Feature Gaps","12-18 months",205],["Technical/Quality Issues","12-18 months",170],["Billing/Account Issues","6-12 months",137],["Product/Feature Gaps","24-30 months",114],["Billing/Account Issues","18-24 months",107],["Billing/Account Issues","30-36 months",104],["Technical/Quality Issues","0-6 months",102],["Billing/Account Issues","0-6 months",100],["Technical/Quality Issues","24-30 months",81],["Product/Feature Gaps","0-6 months",78],["Product/Feature Gaps","6-12 months",74],["Technical/Quality Issues","6-12 months",72],["Product/Feature Gaps","18-24 months",53],["Product/Feature Gaps","30-36 months",42],["Technical/Quality Issues","18-24 months",41],["Technical/Quality Issues","30-36 months",35]],"intent__uv":[["Business Closure/Issues","No UV Issue",13154],["Price-Related","No UV Issue",9656],["Unknown","No UV Issue",5278],["Competitor Migration","No UV Issue",4569],["Billing/Account Issues","No UV Issue",1819],["Business Closure/Issues","Had UV Issue",1252],["Price-Related","Had UV Issue",1001],["Competitor Migration","Had UV Issue",768],["Product/Feature Gaps","No UV Issue",763],["Technical/Quality Issues","No UV Issue",657],["Unknown","Had UV Issue",651],["Billing/Account Issues","Had UV Issue",593],["Product/Feature Gaps","Had UV Issue",117],["Technical/Quality Issues","Had UV Issue",100]],"tenure__churnto":[["36+ months","Shopify",1459],["12-18 months","Shopify",641],["36+ months","WooCommerce",476],["24-30 months","Shopify",434],["6-12 months","Shopify",248],["18-24 months","Shopify",199],["30-36 months","Shopify",186],["36+ months","Squarespace",177],["12-18 months","WooCommerce",163],["0-6 months","Shopify",146],["24-30 months","WooCommerce",140],["36+ months","Other Competitors",102],["36+ months","Custom Site",99],["18-24 months","WooCommerce",67],["36+ months","Tiendanube",61],["12-18 months","Squarespace",55],["6-12 months","WooCommerce",55],["30-36 months","WooCommerce",52],["12-18 months","Other Competitors",50],["24-30 months","Other Competitors",41],["24-30 months","Squarespace",40],["36+ months","Weebly",34],["0-6 months","WooCommerce",27],["12-18 months","Custom Site",25],["24-30 months","Custom Site",21],["30-36 months","Squarespace",20],["6-12 months","Other Competitors",20],["12-18 months","Tiendanube",19],["36+ months","Big Cartel",19],["36+ months","Odoo",18],["30-36 months","Custom Site",17],["12-18 months","Weebly",17],["36+ months","Kajabi",16],["36+ months","Shopify Plus",16],["6-12 months","Squarespace",16],["30-36 months","Other Competitors",14],["6-12 months","Custom Site",14],["18-24 months","Squarespace",13],["6-12 months","Tiendanube",12],["36+ months","GoDaddy",12],["36+ months","Etsy",12],["0-6 months","Other Competitors",12],["18-24 months","Other Competitors",11],["24-30 months","Tiendanube",11],["12-18 months","GoDaddy",10],["0-6 months","Squarespace",9],["18-24 months","Tiendanube",9],["18-24 months","Custom Site",9],["24-30 months","Weebly",7],["12-18 months","Etsy",7],["6-12 months","Weebly",7],["24-30 months","Odoo",6],["0-6 months","Custom Site",6],["24-30 months","GoDaddy",6],["0-6 months","Tiendanube",6],["30-36 months","Weebly",5],["18-24 months","Weebly",5],["12-18 months","Shopify Plus",5],["12-18 months","Big Cartel",5],["24-30 months","Etsy",5],["24-30 months","Shopify Plus",4],["18-24 months","Big Cartel",3],["12-18 months","Kajabi",3],["0-6 months","Weebly",3],["24-30 months","Big Cartel",3],["6-12 months","Kajabi",3],["18-24 months","Odoo",3],["0-6 months","GoDaddy",3],["12-18 months","Odoo",2],["0-6 months","Kajabi",2],["0-6 months","Odoo",2],["30-36 months","Big Cartel",2],["0-6 months","Big Cartel",2],["18-24 months","Shopify Plus",2],["6-12 months","GoDaddy",2],["6-12 months","Big Cartel",2],["30-36 months","Tiendanube",2],["0-6 months","Shopify Plus",1],["30-36 months","Shopify Plus",1],["30-36 months","Etsy",1],["24-30 months","Kajabi",1],["0-6 months","Etsy",1],["18-24 months","GoDaddy",1],["6-12 months","Etsy",1],["30-36 months","Kajabi",1],["30-36 months","Odoo",1],["18-24 months","Kajabi",1],["30-36 months","GoDaddy",1]],"tenure__uv":[["36+ months","No UV Issue",14934],["12-18 months","No UV Issue",7565],["24-30 months","No UV Issue",4885],["6-12 months","No UV Issue",2553],["0-6 months","No UV Issue",2278],["18-24 months","No UV Issue",1999],["30-36 months","No UV Issue",1682],["36+ months","Had UV Issue",1637],["12-18 months","Had UV Issue",1143],["24-30 months","Had UV Issue",530],["6-12 months","Had UV Issue",387],["18-24 months","Had UV Issue",300],["0-6 months","Had UV Issue",275],["30-36 months","Had UV Issue",210]]};
+
+function getPairKey(a, b) {
+    const order = ['intent','gpv','tenure','churnto','uv'];
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    if (ia < ib) return a + '__' + b;
+    return b + '__' + a;
+}
+
+function getFlows(dimKeyA, dimKeyB, reversed) {
+    const key = getPairKey(dimKeyA, dimKeyB);
+    const raw = pairData[key] || [];
+    if (!reversed) return raw;
+    return raw.map(([a, b, v]) => [b, a, v]);
+}
+
+let mode = 2;
+let filterNode = '';
+
+function getSelections() {
+    const left = document.getElementById('sel-left').value;
+    const right = document.getElementById('sel-right').value;
+    const mid = document.getElementById('sel-mid').value;
+    return { left, mid, right };
+}
+
+function buildChart() {
+    const sel = getSelections();
+    let allLabels, allColors, sources, targets, values, linkColors, customdata;
+
+    if (mode === 2) {
+        const dimL = dims[sel.left], dimR = dims[sel.right];
+        if (sel.left === sel.right) { showError('Left and Right must be different dimensions.'); return; }
+
+        const key = getPairKey(sel.left, sel.right);
+        const order = ['intent','gpv','tenure','churnto','uv'];
+        const reversed = order.indexOf(sel.left) > order.indexOf(sel.right);
+        const flows = getFlows(sel.left, sel.right, reversed);
+
+        const leftVals = dimL.values.filter(v => flows.some(f => f[0] === v));
+        const rightVals = dimR.values.filter(v => flows.some(f => f[1] === v));
+        allLabels = [...leftVals, ...rightVals];
+        allColors = [
+            ...leftVals.map(v => dimL.colors[v] || 'rgba(150,150,150,0.5)'),
+            ...rightVals.map(v => dimR.colors[v] || 'rgba(150,150,150,0.5)')
+        ];
+
+        const subset = filterNode ? flows.filter(([a,b]) => a===filterNode || b===filterNode) : flows;
+        const grandTotal = flows.reduce((s,r) => s+r[2], 0);
+        const globalTotals = computeTotals(flows);
+
+        sources = []; targets = []; values = []; linkColors = []; customdata = [];
+        subset.forEach(([a, b, v]) => {
+            const si = allLabels.indexOf(a), ti = allLabels.indexOf(b);
+            if (si < 0 || ti < 0) return;
+            sources.push(si); targets.push(ti); values.push(v);
+            linkColors.push((dimL.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, '0.35)'));
+            const pT = ((v/grandTotal)*100).toFixed(1);
+            const pS = ((v/(globalTotals[a]||1))*100).toFixed(1);
+            const pTg = ((v/(globalTotals[b]||1))*100).toFixed(1);
+            customdata.push([pT, pS, pTg]);
+        });
+    } else {
+        if (sel.left === sel.mid || sel.mid === sel.right || sel.left === sel.right) {
+            showError('All three axes must be different dimensions.'); return;
+        }
+        const dimL = dims[sel.left], dimM = dims[sel.mid], dimR = dims[sel.right];
+        const order = ['intent','gpv','tenure','churnto','uv'];
+        const revLM = order.indexOf(sel.left) > order.indexOf(sel.mid);
+        const revMR = order.indexOf(sel.mid) > order.indexOf(sel.right);
+        const flowsLM = getFlows(sel.left, sel.mid, revLM);
+        const flowsMR = getFlows(sel.mid, sel.right, revMR);
+
+        const leftVals = dimL.values.filter(v => flowsLM.some(f => f[0] === v));
+        const midVals = dimM.values.filter(v => flowsLM.some(f => f[1] === v) || flowsMR.some(f => f[0] === v));
+        const rightVals = dimR.values.filter(v => flowsMR.some(f => f[1] === v));
+        allLabels = [...leftVals, ...midVals, ...rightVals];
+        allColors = [
+            ...leftVals.map(v => dimL.colors[v] || 'rgba(150,150,150,0.5)'),
+            ...midVals.map(v => dimM.colors[v] || 'rgba(150,150,150,0.5)'),
+            ...rightVals.map(v => dimR.colors[v] || 'rgba(150,150,150,0.5)')
+        ];
+
+        const allFlows = [
+            ...flowsLM.map(f => ({...f, seg: 'LM', from: f[0], to: f[1], val: f[2]})),
+            ...flowsMR.map(f => ({...f, seg: 'MR', from: f[0], to: f[1], val: f[2]}))
+        ];
+        const grandTotal = flowsLM.reduce((s,r) => s+r[2], 0);
+        const globalTotals = {};
+        allFlows.forEach(f => {
+            globalTotals[f.from] = (globalTotals[f.from]||0) + f.val;
+            globalTotals[f.to] = (globalTotals[f.to]||0) + f.val;
+        });
+
+        sources = []; targets = []; values = []; linkColors = []; customdata = [];
+
+        const subsetLM = filterNode ? flowsLM.filter(([a,b]) => a===filterNode || b===filterNode) : flowsLM;
+        subsetLM.forEach(([a, b, v]) => {
+            const si = allLabels.indexOf(a), ti = leftVals.length + midVals.indexOf(b);
+            if (si < 0 || ti < leftVals.length) return;
+            sources.push(si); targets.push(ti); values.push(v);
+            linkColors.push((dimL.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, '0.3)'));
+            customdata.push([((v/grandTotal)*100).toFixed(1), ((v/(globalTotals[a]||1))*100).toFixed(1), ((v/(globalTotals[b]||1))*100).toFixed(1)]);
+        });
+
+        const subsetMR = filterNode ? flowsMR.filter(([a,b]) => a===filterNode || b===filterNode) : flowsMR;
+        subsetMR.forEach(([a, b, v]) => {
+            const si = leftVals.length + midVals.indexOf(a);
+            const ti = leftVals.length + midVals.length + rightVals.indexOf(b);
+            if (si < leftVals.length || ti < leftVals.length + midVals.length) return;
+            sources.push(si); targets.push(ti); values.push(v);
+            linkColors.push((dimM.colors[a] || 'rgba(150,150,150,0.3)').replace(/[\d.]+\)$/, '0.3)'));
+            customdata.push([((v/grandTotal)*100).toFixed(1), ((v/(globalTotals[a]||1))*100).toFixed(1), ((v/(globalTotals[b]||1))*100).toFixed(1)]);
+        });
+    }
+
+    const subTotal = values.reduce((s,v) => s+v, 0);
+    const subTotals = {};
+    sources.forEach((s, i) => {
+        subTotals[allLabels[s]] = (subTotals[allLabels[s]]||0) + values[i];
+        subTotals[allLabels[targets[i]]] = (subTotals[allLabels[targets[i]]]||0) + values[i];
+    });
+    const nodeLabels = allLabels.map(l => {
+        const t = subTotals[l] || 0;
+        const pct = subTotal > 0 ? ((t/subTotal)*100).toFixed(1) : '0.0';
+        return `${l}  (${pct}%)`;
+    });
+
+    const titleParts = mode === 2
+        ? `${dims[sel.left].label} → ${dims[sel.right].label}`
+        : `${dims[sel.left].label} → ${dims[sel.mid].label} → ${dims[sel.right].label}`;
+
+    const trace = {
+        type: 'sankey', orientation: 'h', arrangement: 'snap',
+        node: {
+            pad: 20, thickness: 28,
+            line: { color: 'rgba(255,255,255,0.15)', width: 1 },
+            label: nodeLabels, color: allColors,
+            hovertemplate: '<b>%{label}</b><br>%{value:,.0f} users<extra></extra>'
+        },
+        link: {
+            source: sources, target: targets, value: values,
+            color: linkColors, customdata: customdata,
+            hovertemplate:
+                '<b>%{source.label}</b> → <b>%{target.label}</b>' +
+                '<br><b>%{value:,.0f}</b> users' +
+                '<br>%{customdata[0]}% of total' +
+                '<br>%{customdata[1]}% of source' +
+                '<br>%{customdata[2]}% of target<extra></extra>'
+        }
+    };
+
+    Plotly.newPlot('sankey-chart', [trace], {
+        font: { family: "'Segoe UI', system-ui, sans-serif", size: 12, color: '#d1d5db' },
+        paper_bgcolor: '#0f1117', plot_bgcolor: '#0f1117',
+        margin: { l: 10, r: 10, t: 40, b: 10 }, height: 680,
+        title: { text: filterNode ? `Zoomed: ${filterNode}` : titleParts, font: { size: 14, color: '#a5b4fc' }, x: 0.5, xanchor: 'center' }
+    }, { displayModeBar: true, modeBarButtonsToRemove: ['lasso2d','select2d'], displaylogo: false, responsive: true });
+}
+
+function showError(msg) {
+    Plotly.newPlot('sankey-chart', [], {
+        paper_bgcolor: '#0f1117', plot_bgcolor: '#0f1117', height: 680,
+        annotations: [{ text: msg, showarrow: false, font: { size: 16, color: '#fca5a5' }, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper' }]
+    });
+}
+
+function computeTotals(data) {
+    const t = {};
+    data.forEach(([a,b,v]) => { t[a]=(t[a]||0)+v; t[b]=(t[b]||0)+v; });
+    return t;
+}
+
+function buildControls() {
+    const sel = getSelections();
+    const container = document.getElementById('controls');
+    container.innerHTML = '';
+    if (sel.left === sel.right || (mode === 3 && (sel.left === sel.mid || sel.mid === sel.right))) return;
+
+    const resetBtn = mk('button', 'filter-btn reset' + (filterNode === '' ? ' active' : ''), 'Show All');
+    resetBtn.onclick = () => { filterNode = ''; buildControls(); buildChart(); updateBanner(); };
+    container.appendChild(resetBtn);
+    container.appendChild(mkDiv());
+
+    const addSection = (dimKey, label) => {
+        const dim = dims[dimKey];
+        container.appendChild(mk('span', 'section-label', label));
+        dim.values.forEach(v => {
+            const b = mk('button', 'filter-btn' + (filterNode === v ? ' active' : ''), v);
+            b.onclick = () => { filterNode = v; buildControls(); buildChart(); updateBanner(); };
+            container.appendChild(b);
+        });
+        container.appendChild(mkDiv());
+    };
+
+    addSection(sel.left, dims[sel.left].label.split(' ')[0]);
+    if (mode === 3) addSection(sel.mid, dims[sel.mid].label.split(' ')[0]);
+    addSection(sel.right, dims[sel.right].label.split(' ')[0]);
+}
+
+function updateBanner() {
+    const banner = document.getElementById('zoom-banner');
+    if (filterNode) {
+        banner.innerHTML = `Showing flows for <strong>${filterNode}</strong>`;
+        banner.classList.add('visible');
+    } else {
+        banner.classList.remove('visible');
+    }
+}
+
+function mk(tag, cls, txt) { const e = document.createElement(tag); e.className = cls; e.textContent = txt; return e; }
+function mkDiv() { const d = document.createElement('div'); d.className = 'divider'; return d; }
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = parseInt(btn.dataset.mode);
+        document.getElementById('mid-group').style.display = mode === 3 ? 'flex' : 'none';
+        filterNode = '';
+        buildControls(); buildChart(); updateBanner();
+    });
+});
+
+['sel-left','sel-mid','sel-right'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => {
+        filterNode = '';
+        buildControls(); buildChart(); updateBanner();
+    });
+});
+
+function toggleSql(btn) {
+    btn.classList.toggle('open');
+    document.getElementById('sql-content').classList.toggle('open');
+}
+function copyQuery(id) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector(`#${id}`).previousElementSibling;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 1500);
+    });
+}
+
+buildControls();
+buildChart();
+</script>
+</body>
+</html>
