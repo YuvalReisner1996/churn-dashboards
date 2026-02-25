@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange Rate — Slide-Ready</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .slide-frame { width: 960px; height: 540px; background: #fff; }
+    </style>
+</head>
+<body>
+<div class="slide-frame" id="chart"></div>
+<script>
+const groups = ['$1M Club', 'Big', 'Medium', 'Small', 'Micro', 'Moonlighters'];
+const exchangeRate = [512, 77, 32, 10, 3, 1];
+
+const t = { blue: '#4e79a7', text: '#333333', textM: '#555555', textL: '#777777', grid: '#e6e6e6' };
+
+Plotly.newPlot('chart', [
+    {
+        x: groups, y: exchangeRate, type: 'bar', marker: { color: t.blue },
+        hovertemplate: '<b>%{x}</b><br>1 site = %{y:,.0f} Moonlighters<extra></extra>',
+        text: exchangeRate.map(v => v === 1 ? '1x' : `${v.toLocaleString()}x`),
+        textposition: 'outside', textfont: { color: t.text, size: 16 }, cliponaxis: false
+    }
+], {
+    paper_bgcolor: '#fff', plot_bgcolor: '#fff',
+    font: { family: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", size: 15, color: t.text },
+    width: 960, height: 540, margin: { l: 80, r: 80, t: 100, b: 80 },
+    title: { text: 'The Exchange Rate: 1 Site = How Many Moonlighters?', font: { size: 20, color: t.text }, x: 0.5, y: 0.96 },
+    xaxis: { gridcolor: t.grid, linecolor: '#ccc', linewidth: 1, tickfont: { size: 15, color: t.textM }, tickangle: 0 },
+    yaxis: { gridcolor: t.grid, linecolor: '#ccc', linewidth: 1, tickfont: { size: 14, color: t.textM }, zeroline: false,
+             type: 'log', dtick: 1, range: [0, 3.1],
+             title: { text: 'Equivalent Moonlighters (log scale)', font: { size: 14, color: t.textL } } },
+    bargap: 0.3, showlegend: false,
+    hoverlabel: { bgcolor: '#fff', bordercolor: '#ccc', font: { size: 13, color: t.text } },
+    annotations: [{
+        x: 1, y: 1.02, xref: 'paper', yref: 'paper',
+        text: 'Based on average monthly collection per site (GPV take-rate Q4 2024 + Premium subscription full year 2024)',
+        showarrow: false, font: { size: 12, color: t.textL, style: 'italic' }, xanchor: 'right'
+    }]
+}, { displayModeBar: false });
+</script>
+</body>
+</html>
