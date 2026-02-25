@@ -23,8 +23,8 @@
 <div class="slide-frame" id="chart"></div>
 <script>
 const groups = ['$1M Club', 'Big', 'Medium', 'Small', 'Micro', 'Moonlighters'];
-const gpvColl =  [158314, 274202, 274350, 366936, 294201, 185764];
-const premColl = [572, 4363, 8740, 37520, 114776, 523628];
+const gpvColl =  [158314, 274202, 274350, 366936, 294201, 185764].map(v => v * 12);
+const premColl = [572, 4363, 8740, 37520, 114776, 523628].map(v => v * 12);
 const totalRisk = gpvColl.map((g, i) => g + premColl[i]);
 
 const t = { blue: '#4e79a7', green: '#59a14f', text: '#333333', textM: '#555555', textL: '#777777', grid: '#e6e6e6' };
@@ -32,28 +32,28 @@ const t = { blue: '#4e79a7', green: '#59a14f', text: '#333333', textM: '#555555'
 const annotations = groups.map((g, i) => {
     const gpvPct = Math.round(gpvColl[i] / totalRisk[i] * 100);
     const premPct = Math.round(premColl[i] / totalRisk[i] * 100);
-    const totalK = Math.round(totalRisk[i] / 1000);
+    const totalM = (totalRisk[i] / 1e6).toFixed(1);
     return {
-        x: g, y: totalRisk[i] / 1000, yshift: 58,
-        text: `<b>$${totalK}K</b><br><span style="color:${t.blue}"><b>GPV ${gpvPct}%</b></span><br><span style="color:${t.green}"><b>Prem ${premPct}%</b></span>`,
+        x: g, y: totalRisk[i] / 1e6, yshift: 58,
+        text: `<b>$${totalM}M</b><br><span style="color:${t.blue}"><b>GPV ${gpvPct}%</b></span><br><span style="color:${t.green}"><b>Prem ${premPct}%</b></span>`,
         showarrow: false, font: { size: 13, color: t.text }, align: 'center', xanchor: 'center'
     };
 });
 
 Plotly.newPlot('chart', [
-    { x: groups, y: gpvColl.map(v => v/1000), name: 'GPV Collection', type: 'bar', marker: { color: t.blue },
-      hovertemplate: '<b>%{x}</b><br>GPV: $%{y:.0f}K/mo<extra></extra>' },
-    { x: groups, y: premColl.map(v => v/1000), name: 'Premium Collection', type: 'bar', marker: { color: t.green },
-      hovertemplate: '<b>%{x}</b><br>Premium: $%{y:.0f}K/mo<extra></extra>' }
+    { x: groups, y: gpvColl.map(v => v/1e6), name: 'GPV Collection', type: 'bar', marker: { color: t.blue },
+      hovertemplate: '<b>%{x}</b><br>GPV: $%{y:.1f}M/yr<extra></extra>' },
+    { x: groups, y: premColl.map(v => v/1e6), name: 'Premium Collection', type: 'bar', marker: { color: t.green },
+      hovertemplate: '<b>%{x}</b><br>Premium: $%{y:.1f}M/yr<extra></extra>' }
 ], {
     paper_bgcolor: '#fff', plot_bgcolor: '#fff',
     font: { family: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", size: 15, color: t.text },
     width: 960, height: 540, margin: { l: 80, r: 80, t: 100, b: 80 },
     barmode: 'stack',
-    title: { text: 'Total Monthly Collection Lost by Segment', font: { size: 20, color: t.text }, x: 0.5, y: 0.96 },
+    title: { text: 'Annual Collection Lost by Segment', font: { size: 20, color: t.text }, x: 0.5, y: 0.96 },
     xaxis: { gridcolor: t.grid, linecolor: '#ccc', linewidth: 1, tickfont: { size: 15, color: t.textM }, tickangle: 0 },
     yaxis: { gridcolor: t.grid, linecolor: '#ccc', linewidth: 1, tickfont: { size: 14, color: t.textM }, zeroline: false,
-             range: [0, 850], title: { text: '$ Thousands / month', font: { size: 14, color: t.textL } } },
+             range: [0, 10.5], title: { text: '$ Millions / year', font: { size: 14, color: t.textL } } },
     legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: 14, color: t.textM } },
     bargap: 0.3, hoverlabel: { bgcolor: '#fff', bordercolor: '#ccc', font: { size: 13, color: t.text } },
     annotations: annotations
