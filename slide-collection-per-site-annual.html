@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Average Collection per Site — Slide-Ready</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .slide-frame { width: 960px; height: 540px; background: #fff; }
+    </style>
+</head>
+<body>
+<div class="slide-frame" id="chart"></div>
+<script>
+const groups = ['$1M Club', 'Big', 'Medium', 'Small', 'Micro', 'Moonlighters'];
+const avgGpv =  [11308, 1682, 684, 198, 49, 6].map(v => v * 12);
+const avgPrem = [41, 27, 22, 20, 19, 16].map(v => v * 12);
+const avgTotal = avgGpv.map((g, i) => g + avgPrem[i]);
+
+const t = { blue: '#4e79a7', green: '#59a14f', text: '#333333', textM: '#555555', textL: '#777777', grid: '#e6e6e6' };
+
+const fmtVal = v => v >= 1000 ? `$${(v/1000).toFixed(1)}K` : `$${v.toLocaleString()}`;
+
+const annotations = groups.map((g, i) => {
+    const gpvPct = Math.round(avgGpv[i] / avgTotal[i] * 100);
+    const premPct = Math.round(avgPrem[i] / avgTotal[i] * 100);
+    return {
+        x: g, y: Math.log10(avgTotal[i]), yshift: 58,
+        text: `<b>${fmtVal(avgTotal[i])}</b><br><span style="color:${t.blue}"><b>GPV ${gpvPct}%</b></span><br><span style="color:${t.green}"><b>Prem ${premPct}%</b></span>`,
+        showarrow: false, font: { size: 13, color: t.text }, align: 'center', xanchor: 'center'
+    };
+});
+
+Plotly.newPlot('chart', [
+    { x: groups, y: avgGpv, name: 'GPV Collection', type: 'bar', marker: { color: t.blue },
+      hovertemplate: '<b>%{x}</b><br>GPV/site: $%{y:,.0f}/yr<extra></extra>' },
+    { x: groups, y: avgPrem, name: 'Premium Collection', type: 'bar', marker: { color: t.green },
+      hovertemplate: '<b>%{x}</b><br>Premium/site: $%{y:,.0f}/yr<extra></extra>' }
+], {
+    paper_bgcolor: '#fff', plot_bgcolor: '#fff',
+    font: { family: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", size: 15, color: t.text },
+    width: 960, height: 540, margin: { l: 80, r: 80, t: 100, b: 80 },
+    barmode: 'stack',
+    title: { text: 'Average Annual Collection per Churned Site', font: { size: 20, color: t.text }, x: 0.5, y: 0.96 },
+    xaxis: { gridcolor: t.grid, linecolor: '#ccc', linewidth: 1, tickfont: { size: 15, color: t.textM }, tickangle: 0 },
+    yaxis: { gridcolor: t.grid, linecolor: '#ccc', linewidth: 1, tickfont: { size: 14, color: t.textM }, zeroline: false,
+             type: 'log', title: { text: '$ / site / year (log scale)', font: { size: 14, color: t.textL } } },
+    legend: { orientation: 'h', y: -0.15, x: 0.5, xanchor: 'center', font: { size: 14, color: t.textM } },
+    bargap: 0.3, hoverlabel: { bgcolor: '#fff', bordercolor: '#ccc', font: { size: 13, color: t.text } },
+    annotations: annotations
+}, { displayModeBar: false });
+</script>
+</body>
+</html>
